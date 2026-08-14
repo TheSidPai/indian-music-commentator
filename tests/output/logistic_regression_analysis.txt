@@ -1,0 +1,144 @@
+Logistic Regression Analysis
+============================
+
+Setup
+-----
+- Model: Multinomial logistic regression with L2 regularization
+- Train segments: 1356
+- Test segments: 453
+- Number of classes: 6
+- Number of features: 41
+- Group-aware split used: no; stratified segment split
+
+Accuracy
+--------
+- Segment-level accuracy: 0.8035
+
+Classification report
+---------------------
+               precision    recall  f1-score   support
+
+  Raag_Abhogi     0.6786    0.6909    0.6847        55
+Raag_Bhoopali     0.7582    0.8625    0.8070        80
+   Raag_Bihag     0.7945    0.7160    0.7532        81
+   Raag_Kedar     0.8448    0.7313    0.7840        67
+   Raag_Lalit     0.7882    0.8272    0.8072        81
+   Raag_Shree     0.9222    0.9326    0.9274        89
+
+     accuracy                         0.8035       453
+    macro avg     0.7978    0.7934    0.7939       453
+ weighted avg     0.8054    0.8035    0.8028       453
+
+Confusion matrix
+----------------
+true\pred      Raag_Abhogi   Raag_Bhoopali  Raag_Bihag    Raag_Kedar    Raag_Lalit    Raag_Shree  
+Raag_Abhogi    38            10             2             2             3             0           
+Raag_Bhoopali  4             69             4             2             1             0           
+Raag_Bihag     3             5              58            2             9             4           
+Raag_Kedar     9             5              1             49            2             1           
+Raag_Lalit     2             1              6             3             67            2           
+Raag_Shree     0             1              2             0             3             83          
+
+Confusion proportions
+---------------------
+true\pred      Raag_Abhogi   Raag_Bhoopali  Raag_Bihag    Raag_Kedar    Raag_Lalit    Raag_Shree  
+Raag_Abhogi    0.69          0.18           0.04          0.04          0.05          0.00        
+Raag_Bhoopali  0.05          0.86           0.05          0.03          0.01          0.00        
+Raag_Bihag     0.04          0.06           0.72          0.02          0.11          0.05        
+Raag_Kedar     0.13          0.07           0.01          0.73          0.03          0.01        
+Raag_Lalit     0.02          0.01           0.07          0.04          0.83          0.02        
+Raag_Shree     0.00          0.01           0.02          0.00          0.03          0.93        
+
+Most influential features by class
+---------------------------------
+
+Raag_Abhogi
+- target_hz: 1.488272 (positive weight)
+- log_swara_count_Dha: 1.447287 (positive weight)
+- log_swara_count_dha: -1.422292 (negative weight)
+- log_unassigned_frames: 1.231426 (positive weight)
+- n_tonic_candidates: 1.130726 (positive weight)
+- hist_concentration: -1.019663 (negative weight)
+- hist_entropy: -0.961974 (negative weight)
+- tonic_hz: -0.799365 (negative weight)
+- log_swara_count_Ma: 0.702756 (positive weight)
+- log_n_confident_frames: -0.665244 (negative weight)
+- range_span_cents: -0.624942 (negative weight)
+- log_n_voiced_frames: -0.604314 (negative weight)
+
+Raag_Bhoopali
+- swara_prop_Ni: -2.227016 (negative weight)
+- swara_prop_re: -1.805956 (negative weight)
+- hist_entropy: 1.482340 (positive weight)
+- log_swara_count_ni: 1.291777 (positive weight)
+- tonic_hz: 1.041644 (positive weight)
+- log_tonic_hz: -1.038357 (negative weight)
+- swara_prop_Ga: 1.008328 (positive weight)
+- swara_prop_Ma^: -0.978721 (negative weight)
+- swara_prop_Re: 0.962361 (positive weight)
+- hist_peak_1_height: 0.927950 (positive weight)
+- log_swara_count_Sa: -0.924628 (negative weight)
+- log_swara_count_Re: 0.914685 (positive weight)
+
+Raag_Bihag
+- swara_prop_ni: -1.809030 (negative weight)
+- log_swara_count_Dha: -1.620313 (negative weight)
+- swara_prop_Ni: 1.200144 (positive weight)
+- swara_prop_Dha: 1.125592 (positive weight)
+- hist_entropy: -1.014596 (negative weight)
+- log_tonic_hz: 0.945988 (positive weight)
+- swara_prop_Re: -0.942726 (negative weight)
+- log_swara_count_dha: 0.941578 (positive weight)
+- log_swara_count_Ma^: -0.899061 (negative weight)
+- log_swara_count_ni: 0.884236 (positive weight)
+- range_span_cents: 0.870469 (positive weight)
+- log_swara_count_Ni: -0.807326 (negative weight)
+
+Raag_Kedar
+- log_swara_count_Ma^: 1.586100 (positive weight)
+- swara_prop_ni: 1.568024 (positive weight)
+- log_swara_count_Re: 1.197899 (positive weight)
+- swara_prop_dha: -1.037711 (negative weight)
+- log_swara_count_Dha: 1.009913 (positive weight)
+- target_hz: 1.000187 (positive weight)
+- swara_prop_Ma^: -0.994964 (negative weight)
+- log_swara_count_ni: -0.814692 (negative weight)
+- swara_prop_Dha: -0.662382 (negative weight)
+- swara_prop_re: 0.655838 (positive weight)
+- range_span_cents: -0.567143 (negative weight)
+- swara_prop_Ga: -0.522034 (negative weight)
+
+Raag_Lalit
+- log_swara_count_Pa: -1.559501 (negative weight)
+- log_swara_count_Ni: 1.537972 (positive weight)
+- log_swara_count_Ma: -1.199019 (negative weight)
+- log_swara_count_dha: 1.022713 (positive weight)
+- swara_prop_Ma^: 1.017127 (positive weight)
+- hist_entropy: 0.789852 (positive weight)
+- log_swara_count_Re: -0.785788 (negative weight)
+- confident_ratio: 0.779201 (positive weight)
+- swara_prop_Re: -0.704554 (negative weight)
+- log_swara_count_Ma^: -0.670912 (negative weight)
+- log_swara_count_re: 0.646627 (positive weight)
+- swara_prop_Ga: 0.637213 (positive weight)
+
+Raag_Shree
+- n_tonic_candidates: -1.720863 (negative weight)
+- target_hz: -1.394599 (negative weight)
+- swara_prop_Ga: -0.965618 (negative weight)
+- log_swara_count_re: 0.946228 (positive weight)
+- swara_prop_ni: 0.914610 (positive weight)
+- log_swara_count_ni: -0.895076 (negative weight)
+- swara_prop_Ni: 0.867362 (positive weight)
+- swara_prop_ga: -0.866024 (negative weight)
+- log_swara_count_Dha: -0.760286 (negative weight)
+- log_swara_count_ga: -0.731965 (negative weight)
+- range_span_cents: 0.731345 (positive weight)
+- swara_prop_Dha: -0.712048 (negative weight)
+
+Interpretation notes
+--------------------
+- Logistic regression is a linear classifier, so it tests whether the current feature set supports reasonably separable class regions with linear decision boundaries.
+- If this performs similarly to or better than KNN, the features are carrying class information in a globally organized way rather than only through local neighbourhood structure.
+- If this underperforms KNN, then local clusters matter more than a single global boundary.
+- Large positive or negative class weights indicate which features the model leans on most strongly for that class, but the sign should be interpreted relative to all other features after standardization.

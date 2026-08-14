@@ -5,12 +5,15 @@ from __future__ import annotations
 from typing import Callable, Any, Protocol
 
 import numpy as np
+import pandas as pd
 
 from .stage1_schema import build_stage1_schema
 from .raga_features import extract_raga_features_from_stage1
 
 class PitchContourLike(Protocol):
     times: Any
+
+
 
 def plot_tsne_segments(
     X,
@@ -59,15 +62,30 @@ def plot_tsne_segments(
         "Raag_Bihag": "tab:blue",
         "Raag_Bhoopali": "tab:orange",
         "Raag_Kedar": "tab:green",
+        "Raag_Abhogi": "tab:red",
+        "Raag_Shree": "tab:purple",
+        "Raag_Lalit": "tab:brown",
     }
 
     markers = {
         "27_Raag_Bihag": "o",
         "81_Raag_Bihag": "s",
+
         "83_Raag_Bhoopali": "^",
         "105_Raag_Bhoopali": "v",
+
         "8_Raag_Kedar": "D",
         "84_Raag_Kedar": "P",
+
+        "20_Raag_Abhogi": "X",
+        "44_Raag_Abhogi": "<",
+
+        "0_Raag_Shree": ">",
+        "37_Raag_Shree": "*",
+
+        "10_Raag_Lalit": "h",
+        "33_Raag_Lalit": "8",
+        "104_Raga_Lalit_-_Khayal": "p",
     }
 
     plt.figure(figsize=(9, 7))
@@ -109,7 +127,7 @@ def plot_tsne_segments(
     plt.title(f"t-SNE of segment features (perplexity={perplexity})")
     plt.xlabel("t-SNE 1")
     plt.ylabel("t-SNE 2")
-    plt.legend(fontsize=8, loc="best", ncol=2)
+    plt.legend(fontsize=7, loc="best", ncol=3)
     plt.tight_layout()
     plt.savefig(out_path, dpi=220, bbox_inches="tight")
     plt.close()
@@ -224,6 +242,7 @@ def build_segment_feature_dataset(
                 x, names, meta = extract_raga_features_from_stage1(stage1)
                 x = np.asarray(x, dtype=float)
 
+
                 if not feature_names:
                     feature_names = list(names)
                 elif list(names) != feature_names:
@@ -273,6 +292,11 @@ def build_segment_feature_dataset(
     y = np.array([r["raga_label"] for r in valid_records])
     track_ids = np.array([r["track_id"] for r in valid_records])
     segment_indices = np.array([r["segment_index"] for r in valid_records])
+
+    
+    df = pd.DataFrame(X)
+    df.insert(0, "raga_label", y)
+    df.to_csv('key_segment_features_table.csv')
 
     plot_tsne_segments(
         X,

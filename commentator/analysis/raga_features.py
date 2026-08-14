@@ -28,6 +28,24 @@ CANONICAL_SWARA_ORDER = [
     "Sa", "re", "Re", "ga", "Ga", "Ma", "Ma^", "Pa", "dha", "Dha", "ni", "Ni"
 ]
 
+DROP_NAMES = {
+    "tonic_pc_cents",
+    "n_voiced_used",
+    "log_n_voiced_used",
+    "min_relative_cents",
+    "max_relative_cents",
+    "median_relative_cents",
+    "hist_bin_size_cents",
+    "hist_peak_2_cents",
+    "hist_peak_2_height",
+    "hist_peak_3_cents",
+    "hist_peak_3_height",
+}
+def apply_feature_subset(x, names):
+    mask = [name not in DROP_NAMES for name in names]
+    x_sub = x[mask]
+    names_sub = [n for n, keep in zip(names, mask) if keep]
+    return x_sub, names_sub
 
 def _safe_float(value: Any, default: float = 0.0) -> float:
     if value is None:
@@ -263,7 +281,6 @@ def _extract_pitch_histogram_features(stage1: Dict[str, Any]) -> Tuple[List[floa
     names = ["hist_bin_size_cents", "hist_ref_hz"] + peak_names
     return values, names
 
-
 def extract_raga_features_from_stage1(
     stage1: Dict[str, Any],
     swara_order: List[str] | None = None,
@@ -307,6 +324,8 @@ def extract_raga_features_from_stage1(
     feature_names.extend(hist_names)
 
     feature_vector = np.asarray(feature_values, dtype=float)
+
+    feature_vector, feature_names = apply_feature_subset(feature_vector, feature_names)
 
     meta = {
         "track_id": stage1.get("meta", {}).get("track_id"),

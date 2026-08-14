@@ -1,0 +1,80 @@
+Random Forest Analysis
+======================
+
+Setup
+-----
+- Model: Random forest classifier
+- Train segments: 1356
+- Test segments: 453
+- Number of classes: 6
+- Number of features: 41
+- Group-aware split used: no; stratified segment split
+
+Accuracy
+--------
+- Segment-level accuracy: 0.9051
+
+Classification report
+---------------------
+               precision    recall  f1-score   support
+
+  Raag_Abhogi     0.8525    0.9455    0.8966        55
+Raag_Bhoopali     0.9383    0.9500    0.9441        80
+   Raag_Bihag     0.9375    0.9259    0.9317        81
+   Raag_Kedar     0.9032    0.8358    0.8682        67
+   Raag_Lalit     0.8608    0.8395    0.8500        81
+   Raag_Shree     0.9222    0.9326    0.9274        89
+
+     accuracy                         0.9051       453
+    macro avg     0.9024    0.9049    0.9030       453
+ weighted avg     0.9055    0.9051    0.9048       453
+
+Confusion matrix
+----------------
+true\pred      Raag_Abhogi   Raag_Bhoopali  Raag_Bihag    Raag_Kedar    Raag_Lalit    Raag_Shree  
+Raag_Abhogi    52            1              1             0             1             0           
+Raag_Bhoopali  2             76             1             1             0             0           
+Raag_Bihag     0             1              75            0             3             2           
+Raag_Kedar     5             1              0             56            4             1           
+Raag_Lalit     2             1              1             5             68            4           
+Raag_Shree     0             1              2             0             3             83          
+
+Confusion proportions
+---------------------
+true\pred      Raag_Abhogi   Raag_Bhoopali  Raag_Bihag    Raag_Kedar    Raag_Lalit    Raag_Shree  
+Raag_Abhogi    0.95          0.02           0.02          0.00          0.02          0.00        
+Raag_Bhoopali  0.03          0.95           0.01          0.01          0.00          0.00        
+Raag_Bihag     0.00          0.01           0.93          0.00          0.04          0.02        
+Raag_Kedar     0.07          0.01           0.00          0.84          0.06          0.01        
+Raag_Lalit     0.02          0.01           0.01          0.06          0.84          0.05        
+Raag_Shree     0.00          0.01           0.02          0.00          0.03          0.93        
+
+Global feature importance
+-------------------------
+- tonic_hz: 0.051608
+- swara_prop_Dha: 0.048954
+- hist_peak_1_cents: 0.047806
+- log_tonic_hz: 0.046955
+- target_hz: 0.045476
+- log_swara_count_Dha: 0.044037
+- log_swara_count_dha: 0.037281
+- log_swara_count_Ni: 0.037213
+- log_swara_count_ni: 0.036774
+- swara_prop_ni: 0.036610
+- swara_prop_Re: 0.035859
+- swara_prop_dha: 0.034361
+- log_swara_count_Re: 0.033843
+- swara_prop_Ni: 0.032934
+- log_swara_count_re: 0.030505
+- swara_prop_ga: 0.028301
+- log_swara_count_Ma: 0.026883
+- log_swara_count_ga: 0.026496
+- log_swara_count_Ma^: 0.026358
+- swara_prop_re: 0.025259
+
+Interpretation notes
+--------------------
+- Random forest can model non-linear interactions and threshold effects, so it is a good next comparison against both KNN and logistic regression.
+- If this beats logistic regression by a meaningful margin, the feature space likely contains useful non-linear structure.
+- If this still struggles, then the limitation is more likely in the representation or the intrinsic overlap of classes rather than the classifier family alone.
+- Feature importance here is global and does not show direction; it only shows how much each feature contributes to reducing impurity across the forest.
