@@ -15,13 +15,117 @@ from commentator.analysis.segment_dataset import build_segment_feature_dataset
 DATA_HOME = "/home/thesidpai/mir_projects/data"  # change if needed
 
 TRACKS = [
-    {"track_id": "27_Raag_Bihag", "raga_label": "Raag_Bihag"},
-    {"track_id": "81_Raag_Bihag", "raga_label": "Raag_Bihag"},
-    {"track_id": "8_Raag_Kedar",  "raga_label": "Raag_Kedar"},
-    {"track_id": "84_Raag_Kedar", "raga_label": "Raag_Kedar"},
-    {"track_id": "83_Raag_Bhoopali",  "raga_label": "Raag_Bhoopali"},
-    {"track_id": "105_Raag_Bhoopali", "raga_label": "Raag_Bhoopali"},
+    # Bihag
+    {"track_id": "27_Raag_Bihag",      "raga_label": "Raag_Bihag"},
+    {"track_id": "81_Raag_Bihag",      "raga_label": "Raag_Bihag"},
+
+    # Kedar
+    {"track_id": "8_Raag_Kedar",       "raga_label": "Raag_Kedar"},
+    {"track_id": "84_Raag_Kedar",      "raga_label": "Raag_Kedar"},
+
+    # Bhoopali
+    {"track_id": "83_Raag_Bhoopali",   "raga_label": "Raag_Bhoopali"},
+    {"track_id": "105_Raag_Bhoopali",  "raga_label": "Raag_Bhoopali"},
+
+    # Abhogi
+    {"track_id": "20_Raag_Abhogi",     "raga_label": "Raag_Abhogi"},
+    {"track_id": "44_Raag_Abhogi",     "raga_label": "Raag_Abhogi"},
+
+    # Shree (only 0 and 37)
+    {"track_id": "0_Raag_Shree",       "raga_label": "Raag_Shree"},
+    {"track_id": "37_Raag_Shree",      "raga_label": "Raag_Shree"},
+
+    # Lalit (all three)
+    {"track_id": "10_Raag_Lalit",          "raga_label": "Raag_Lalit"},
+    {"track_id": "33_Raag_Lalit",          "raga_label": "Raag_Lalit"},
+    {"track_id": "104_Raga_Lalit_-_Khayal","raga_label": "Raag_Lalit"},
 ]
+
+def print_segment_confusion(y_true, y_pred):
+    from collections import defaultdict
+
+    labels = sorted(set(str(x) for x in y_true) | set(str(x) for x in y_pred))
+    counts = {t: defaultdict(int) for t in labels}
+
+    for t, p in zip(y_true, y_pred):
+        counts[str(t)][str(p)] += 1
+
+    print("\n=== Segment-level confusion matrix ===")
+    header = "true\\pred".ljust(18) + "".join(lbl[:16].ljust(18) for lbl in labels)
+    print(header)
+
+    for t in labels:
+        row = t[:16].ljust(18)
+        for p in labels:
+            row += str(counts[t][p]).ljust(18)
+        print(row)
+
+    print("\n=== Segment-level confusion proportions ===")
+    print(header)
+    for t in labels:
+        total = sum(counts[t].values())
+        row = t[:16].ljust(18)
+        for p in labels:
+            val = counts[t][p] / total if total > 0 else 0.0
+            row += f"{val:.2f}".ljust(18)
+        print(row)
+
+def inspect_raga_neighbourhoods(X, y, records, target_raga, n_neighbors=5, top_k_segments=10):
+    import numpy as np
+    from sklearn.neighbors import NearestNeighbors
+    from collections import Counter
+
+    X = np.asarray(X, dtype=float)
+    labels = np.array([str(v) for v in y])
+    recs = list(records)
+
+    idx_target = np.where(labels == target_raga)[0]
+    if len(idx_target) == 0:
+        print(f"No segments found for {target_raga}")
+        return
+
+    nn = NearestNeighbors(n_neighbors=n_neighbors + 1, metric="euclidean")
+    nn.fit(X)
+
+    print(f"\n=== {target_raga} segments with most non-self neighbours ===")
+
+    for target_track in sorted({recs[i]['track_id'] for i in idx_target}):
+        track_idx = [i for i in idx_target if recs[i]["track_id"] == target_track]
+        if not track_idx:
+            continue
+
+        scores = []
+
+        for i in track_idx:
+            x_i = X[i:i+1]
+            _, neigh_idx = nn.kneighbors(x_i, return_distance=True)
+
+            neigh_idx = neigh_idx[0]
+            neigh_idx = [j for j in neigh_idx if j != i][:n_neighbors]
+            neigh_labels = [labels[j] for j in neigh_idx]
+
+            c = Counter(neigh_labels)
+            same_count = c.get(target_raga, 0)
+            frac_same = same_count / max(1, len(neigh_idx))
+
+            scores.append({
+                "index": i,
+                "frac_same": frac_same,
+                "counts": dict(c),
+            })
+
+        scores.sort(key=lambda s: s["frac_same"])  # least self-like first
+        top = scores[:top_k_segments]
+
+        print(f"\nTrack: {target_track}")
+        for s in top:
+            rec = recs[s["index"]]
+            print(
+                f"  seg {rec['segment_index']:3d} | "
+                f"{rec['start_s']:7.1f}–{rec['end_s']:7.1f}s | "
+                f"same-NN frac={s['frac_same']:.2f} | "
+                f"{s['counts']}"
+            )
 
 def inspect_kedar_confusions(X, y, records, n_neighbors=5, top_k_segments=10):
     """
@@ -152,7 +256,8 @@ def main() -> None:
 
     track_results = []
     segment_correct = []
-
+    all_y_true = []
+    all_y_pred = []
     print("\n=== Leave-one-track-out results ===")
 
     for train_idx, test_idx in logo.split(X, y, groups=groups):
@@ -168,6 +273,9 @@ def main() -> None:
 
         clf.fit(X_train, y_train)
         seg_preds = [str(p) for p in clf.predict(X_test)]
+        y_test = [str(t) for t in y_test]
+        all_y_true.extend(y_test)
+        all_y_pred.extend(seg_preds)
 
         for pred, truth in zip(seg_preds, y_test):
             segment_correct.append(pred == truth)
@@ -207,7 +315,11 @@ def main() -> None:
     for r in track_results:
         print(r)
 
-    inspect_kedar_confusions(X, y, valid_records, n_neighbors=5, top_k_segments=10)
+    # inspect_kedar_confusions(X, y, valid_records, n_neighbors=5, top_k_segments=10)
+    print_segment_confusion(all_y_true, all_y_pred)
+
+    inspect_raga_neighbourhoods(X, y, valid_records, target_raga="Raag_Kedar", n_neighbors=5, top_k_segments=10)
+    inspect_raga_neighbourhoods(X, y, valid_records, target_raga="Raag_Lalit", n_neighbors=5, top_k_segments=10)
 
 
 if __name__ == "__main__":
