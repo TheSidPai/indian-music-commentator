@@ -1,0 +1,112 @@
+```text
+Saved t-SNE plot to tsne_segments.png
+Valid segments:  910
+Failed segments: 0
+X shape:         (910, 52)
+# features:      52
+
+First 15 feature names:
+0 tonic_hz
+1 log_tonic_hz
+2 tonic_pc_cents
+3 n_voiced_used
+4 log_n_voiced_used
+5 target_hz
+6 n_tonic_candidates
+7 swara_prop_Sa
+8 swara_prop_re
+9 swara_prop_Re
+10 swara_prop_ga
+11 swara_prop_Ga
+12 swara_prop_Ma
+13 swara_prop_Ma^
+14 swara_prop_Pa
+
+=== Leave-one-track-out results ===
+
+Held-out track: 105_Raag_Bhoopali
+  True label:      Raag_Bhoopali
+  Pred label:      Raag_Bhoopali
+  Track correct:   True
+  Num segments:    167
+  Segment acc:     0.808
+  Vote counts:     {'Raag_Bihag': 14, 'Raag_Bhoopali': 135, 'Raag_Kedar': 18}
+
+Held-out track: 27_Raag_Bihag
+  True label:      Raag_Bihag
+  Pred label:      Raag_Bihag
+  Track correct:   True
+  Num segments:    199
+  Segment acc:     0.769
+  Vote counts:     {'Raag_Bhoopali': 22, 'Raag_Bihag': 153, 'Raag_Kedar': 24}
+
+Held-out track: 81_Raag_Bihag
+  True label:      Raag_Bihag
+  Pred label:      Raag_Bihag
+  Track correct:   True
+  Num segments:    126
+  Segment acc:     0.690
+  Vote counts:     {'Raag_Bhoopali': 28, 'Raag_Bihag': 87, 'Raag_Kedar': 11}
+
+Held-out track: 83_Raag_Bhoopali
+  True label:      Raag_Bhoopali
+  Pred label:      Raag_Bhoopali
+  Track correct:   True
+  Num segments:    151
+  Segment acc:     0.742
+  Vote counts:     {'Raag_Bhoopali': 112, 'Raag_Bihag': 18, 'Raag_Kedar': 21}
+
+Held-out track: 84_Raag_Kedar
+  True label:      Raag_Kedar
+  Pred label:      Raag_Bhoopali
+  Track correct:   False
+  Num segments:    131
+  Segment acc:     0.084
+  Vote counts:     {'Raag_Bhoopali': 72, 'Raag_Kedar': 11, 'Raag_Bihag': 48}
+
+Held-out track: 8_Raag_Kedar
+  True label:      Raag_Kedar
+  Pred label:      Raag_Bhoopali
+  Track correct:   False
+  Num segments:    136
+  Segment acc:     0.169
+  Vote counts:     {'Raag_Bihag': 49, 'Raag_Bhoopali': 64, 'Raag_Kedar': 23}
+
+=== Summary ===
+Track-level accuracy:   0.667
+Segment-level accuracy: 0.573
+
+=== Full track results ===
+{'track_id': '105_Raag_Bhoopali', 'true_label': 'Raag_Bhoopali', 'track_pred': 'Raag_Bhoopali', 'track_correct': True, 'n_segments': 167, 'segment_accuracy': 0.8083832335329342, 'vote_counts': {'Raag_Bihag': 14, 'Raag_Bhoopali': 135, 'Raag_Kedar': 18}}
+{'track_id': '27_Raag_Bihag', 'true_label': 'Raag_Bihag', 'track_pred': 'Raag_Bihag', 'track_correct': True, 'n_segments': 199, 'segment_accuracy': 0.7688442211055276, 'vote_counts': {'Raag_Bhoopali': 22, 'Raag_Bihag': 153, 'Raag_Kedar': 24}}
+{'track_id': '81_Raag_Bihag', 'true_label': 'Raag_Bihag', 'track_pred': 'Raag_Bihag', 'track_correct': True, 'n_segments': 126, 'segment_accuracy': 0.6904761904761905, 'vote_counts': {'Raag_Bhoopali': 28, 'Raag_Bihag': 87, 'Raag_Kedar': 11}}
+{'track_id': '83_Raag_Bhoopali', 'true_label': 'Raag_Bhoopali', 'track_pred': 'Raag_Bhoopali', 'track_correct': True, 'n_segments': 151, 'segment_accuracy': 0.7417218543046358, 'vote_counts': {'Raag_Bhoopali': 112, 'Raag_Bihag': 18, 'Raag_Kedar': 21}}
+{'track_id': '84_Raag_Kedar', 'true_label': 'Raag_Kedar', 'track_pred': 'Raag_Bhoopali', 'track_correct': False, 'n_segments': 131, 'segment_accuracy': 0.08396946564885496, 'vote_counts': {'Raag_Bhoopali': 72, 'Raag_Kedar': 11, 'Raag_Bihag': 48}}
+{'track_id': '8_Raag_Kedar', 'true_label': 'Raag_Kedar', 'track_pred': 'Raag_Bhoopali', 'track_correct': False, 'n_segments': 136, 'segment_accuracy': 0.16911764705882354, 'vote_counts': {'Raag_Bihag': 49, 'Raag_Bhoopali': 64, 'Raag_Kedar': 23}}
+
+=== Kedar segments with Bhoopali-like neighbourhoods ===
+
+Kedar track: 84_Raag_Kedar
+  seg  56 |  1120.0– 1150.0s | Bhoop NN frac=1.00 (Bhoop=5, Bihag=0, Kedar=0)
+  seg  72 |  1440.0– 1470.0s | Bhoop NN frac=1.00 (Bhoop=5, Bihag=0, Kedar=0)
+  seg  76 |  1520.0– 1550.0s | Bhoop NN frac=1.00 (Bhoop=5, Bihag=0, Kedar=0)
+  seg  77 |  1540.0– 1570.0s | Bhoop NN frac=1.00 (Bhoop=5, Bihag=0, Kedar=0)
+  seg  96 |  1920.0– 1950.0s | Bhoop NN frac=1.00 (Bhoop=5, Bihag=0, Kedar=0)
+  seg 114 |  2280.0– 2310.0s | Bhoop NN frac=1.00 (Bhoop=5, Bihag=0, Kedar=0)
+  seg   1 |    20.0–   50.0s | Bhoop NN frac=0.80 (Bhoop=4, Bihag=0, Kedar=1)
+  seg   5 |   100.0–  130.0s | Bhoop NN frac=0.80 (Bhoop=4, Bihag=1, Kedar=0)
+  seg   8 |   160.0–  190.0s | Bhoop NN frac=0.80 (Bhoop=4, Bihag=0, Kedar=1)
+  seg  12 |   240.0–  270.0s | Bhoop NN frac=0.80 (Bhoop=4, Bihag=0, Kedar=1)
+
+Kedar track: 8_Raag_Kedar
+  seg  56 |  1120.0– 1150.0s | Bhoop NN frac=1.00 (Bhoop=5, Bihag=0, Kedar=0)
+  seg   0 |     0.0–   30.0s | Bhoop NN frac=0.80 (Bhoop=4, Bihag=1, Kedar=0)
+  seg  10 |   200.0–  230.0s | Bhoop NN frac=0.80 (Bhoop=4, Bihag=0, Kedar=1)
+  seg  45 |   900.0–  930.0s | Bhoop NN frac=0.80 (Bhoop=4, Bihag=0, Kedar=1)
+  seg  50 |  1000.0– 1030.0s | Bhoop NN frac=0.80 (Bhoop=4, Bihag=0, Kedar=1)
+  seg 134 |  2680.0– 2710.0s | Bhoop NN frac=0.80 (Bhoop=4, Bihag=0, Kedar=1)
+  seg  13 |   260.0–  290.0s | Bhoop NN frac=0.60 (Bhoop=3, Bihag=1, Kedar=1)
+  seg  16 |   320.0–  350.0s | Bhoop NN frac=0.60 (Bhoop=3, Bihag=0, Kedar=2)
+  seg  20 |   400.0–  430.0s | Bhoop NN frac=0.60 (Bhoop=3, Bihag=0, Kedar=2)
+  seg  28 |   560.0–  590.0s | Bhoop NN frac=0.60 (Bhoop=3, Bihag=1, Kedar=1)
+```

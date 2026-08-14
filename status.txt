@@ -1,0 +1,117 @@
+indian-music-commentator status
+===============================
+
+Repository tree
+---------------
+
+.
+├── commentator/
+│   ├── __init__.py
+│   ├── analysis/
+│   │   ├── __init__.py
+│   │   ├── experiment_three.py
+│   │   ├── pipeline_one.py
+│   │   ├── raga_baseline_knn.py
+│   │   ├── raga_features.py
+│   │   ├── segment_dataset.py
+│   │   ├── stage1_schema.py
+│   │   ├── swara_analyzer.py
+│   │   └── tonic_estimator.py
+│   ├── core/
+│   │   └── pitch_contour.py
+│   ├── io/
+│   │   └── loaders.py
+│   ├── tests/
+│   │   └── test_pitch_contour.py
+│   └── utils/
+│       └── audio_utils.py
+├── docs/
+│   ├── project-report.md
+│   └── experiments/
+│       ├── 2026-06-raga-baseline-log.md
+│       ├── Raga Feaures.txt
+│       ├── segment_3_raag_result.txt
+│       └── segment_6_raag_result.txt
+├── tests/
+│   ├── classifier_compare.py
+│   ├── inspect_features.py
+│   ├── test.py
+│   ├── test_mirdata.py
+│   ├── test_segment.py
+│   └── output/
+│       ├── classifier_summary.json
+│       ├── logistic_regression_analysis.txt
+│       └── random_forest_analysis.txt
+├── commentator.ipynb
+├── experiment_three_hybrid_results.csv
+├── key_segment_features_table.csv
+├── test.ipynb
+├── test.py
+├── test_segment_lr_rf.py
+└── tsne_segments.png
+
+Note: hidden environment/cache folders such as .git, .venv, and .pytest_cache are omitted above for readability.
+
+Plain-English summary of the repo
+---------------------------------
+
+The repo is centered on Hindustani raga analysis from pitch contours.
+The main implementation lives under commentator/, with the analysis code split into tonic estimation, swara analysis, Stage-1 schema building, segment dataset construction, and feature extraction.
+The docs/experiments folder records the baseline history and experiment decisions.
+The tests/ folder contains evaluation scripts, feature inspection helpers, and saved output reports.
+There are also generated artifacts at the repo root, including the CSV feature table and the t-SNE plot.
+
+What the current docs say
+-------------------------
+
+The baseline log says the current best classifier is Random Forest, because it reached the highest reported accuracy in the June 2026 comparison: 0.9051 segment-level accuracy, versus 0.8035 for logistic regression.
+That result came from the CSV-based comparison flow in tests/classifier_compare.py, not from the older KNN baseline.
+
+The current test file in use
+----------------------------
+
+The active script is test_segment_lr_rf.py at the repo root.
+
+How the current pipeline works when running test_segment_lr_rf.py
+-----------------------------------------------------------------
+
+1. The script starts in test_segment_lr_rf.py and initializes the Saraga dataset through commentator/io/loaders.py via initialize_saraga(DATA_HOME).
+2. For each chosen track, it gets a PitchContour with get_pitch_for_track(...), which wraps the mirdata pitch data in commentator/core/pitch_contour.py.
+3. The segment builder in commentator/analysis/segment_dataset.py infers track duration from pitch_obj.times, then creates 30-second windows with a 20-second hop and a 15-second minimum duration.
+4. Each window is sliced into a smaller PitchContour with slice_pitch_contour(...).
+5. The slice is passed into build_stage1_schema(...) from commentator/analysis/stage1_schema.py.
+6. build_stage1_schema(...) calls analyze_pitch_musically(...) in commentator/analysis/pipeline_one.py.
+7. analyze_pitch_musically(...) runs the Stage-1 chain:
+   - tonic estimation in commentator/analysis/tonic_estimator.py
+   - tonic normalization in commentator/analysis/tonic_estimator.py
+   - swara assignment and swara summary in commentator/analysis/swara_analyzer.py
+   - a short textual comment from the same swara/tonic helpers
+8. extract_raga_features_from_stage1(...) in commentator/analysis/raga_features.py converts that Stage-1 dict into a numeric feature vector.
+9. That feature vector is built from tonic, swara, range, histogram, movement, stability, and pattern features, then reduced again by apply_feature_subset(...).
+10. build_segment_feature_dataset(...) collects all valid segments into X, feature_names, and records, and also writes key_segment_features_table.csv plus tsne_segments.png as side artifacts.
+11. Back in test_segment_lr_rf.py, failed segments are dropped, y labels and groups are built from raga_label and track_id, and the evaluation uses LeaveOneGroupOut so the held-out unit is always an entire track.
+12. The script then fits and evaluates two pipelines:
+   - Logistic Regression: SimpleImputer -> StandardScaler -> LogisticRegression
+   - Random Forest: SimpleImputer -> RandomForestClassifier
+13. For each held-out track, segment predictions are majority-voted into a track-level prediction.
+14. The script prints track accuracy, segment accuracy, a confusion matrix, and a classification report for each classifier.
+
+Files involved in that flow
+---------------------------
+
+- test_segment_lr_rf.py
+- commentator/io/loaders.py
+- commentator/core/pitch_contour.py
+- commentator/analysis/segment_dataset.py
+- commentator/analysis/stage1_schema.py
+- commentator/analysis/pipeline_one.py
+- commentator/analysis/tonic_estimator.py
+- commentator/analysis/swara_analyzer.py
+- commentator/analysis/raga_features.py
+
+Bottom line
+-----------
+
+If you want the classifier with the highest accuracy in the docs, use Random Forest.
+If you want the current runnable test entrypoint, use test_segment_lr_rf.py.
+If you want the older baseline, that was test_segment.py with KNN.

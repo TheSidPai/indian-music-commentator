@@ -1,0 +1,229 @@
+Saved t-SNE plot to tsne_segments.png
+Valid segments:  1809
+Failed segments: 0
+X shape:         (1809, 52)
+# features:      52
+
+First 15 feature names:
+0 tonic_hz
+1 log_tonic_hz
+2 tonic_pc_cents
+3 n_voiced_used
+4 log_n_voiced_used
+5 target_hz
+6 n_tonic_candidates
+7 swara_prop_Sa
+8 swara_prop_re
+9 swara_prop_Re
+10 swara_prop_ga
+11 swara_prop_Ga
+12 swara_prop_Ma
+13 swara_prop_Ma^
+14 swara_prop_Pa
+
+=== Leave-one-track-out results ===
+
+Held-out track: 0_Raag_Shree
+  True label:      Raag_Shree
+  Pred label:      Raag_Shree
+  Track correct:   True
+  Num segments:    157
+  Segment acc:     0.516
+  Vote counts:     {'Raag_Shree': 81, 'Raag_Bihag': 27, 'Raag_Kedar': 16, 'Raag_Lalit': 21, 'Raag_Bhoopali': 12}
+
+Held-out track: 104_Raga_Lalit_-_Khayal
+  True label:      Raag_Lalit
+  Pred label:      Raag_Bihag
+  Track correct:   False
+  Num segments:    181
+  Segment acc:     0.127
+  Vote counts:     {'Raag_Abhogi': 19, 'Raag_Bihag': 61, 'Raag_Bhoopali': 13, 'Raag_Lalit': 23, 'Raag_Shree': 55, 'Raag_Kedar': 10}
+
+Held-out track: 105_Raag_Bhoopali
+  True label:      Raag_Bhoopali
+  Pred label:      Raag_Bhoopali
+  Track correct:   True
+  Num segments:    167
+  Segment acc:     0.665
+  Vote counts:     {'Raag_Bhoopali': 111, 'Raag_Lalit': 2, 'Raag_Bihag': 9, 'Raag_Abhogi': 25, 'Raag_Shree': 13, 'Raag_Kedar': 7}
+
+Held-out track: 10_Raag_Lalit
+  True label:      Raag_Lalit
+  Pred label:      Raag_Bihag
+  Track correct:   False
+  Num segments:    19
+  Segment acc:     0.263
+  Vote counts:     {'Raag_Bhoopali': 5, 'Raag_Bihag': 8, 'Raag_Lalit': 5, 'Raag_Shree': 1}
+
+Held-out track: 20_Raag_Abhogi
+  True label:      Raag_Abhogi
+  Pred label:      Raag_Kedar
+  Track correct:   False
+  Num segments:    128
+  Segment acc:     0.117
+  Vote counts:     {'Raag_Bhoopali': 35, 'Raag_Bihag': 18, 'Raag_Abhogi': 15, 'Raag_Kedar': 46, 'Raag_Lalit': 11, 'Raag_Shree': 3}
+
+Held-out track: 27_Raag_Bihag
+  True label:      Raag_Bihag
+  Pred label:      Raag_Bihag
+  Track correct:   True
+  Num segments:    199
+  Segment acc:     0.613
+  Vote counts:     {'Raag_Lalit': 25, 'Raag_Bihag': 122, 'Raag_Shree': 19, 'Raag_Kedar': 14, 'Raag_Bhoopali': 15, 'Raag_Abhogi': 4}
+
+Held-out track: 33_Raag_Lalit
+  True label:      Raag_Lalit
+  Pred label:      Raag_Bihag
+  Track correct:   False
+  Num segments:    122
+  Segment acc:     0.254
+  Vote counts:     {'Raag_Lalit': 31, 'Raag_Bhoopali': 15, 'Raag_Shree': 13, 'Raag_Bihag': 44, 'Raag_Kedar': 12, 'Raag_Abhogi': 7}
+
+Held-out track: 37_Raag_Shree
+  True label:      Raag_Shree
+  Pred label:      Raag_Shree
+  Track correct:   True
+  Num segments:    198
+  Segment acc:     0.722
+  Vote counts:     {'Raag_Shree': 143, 'Raag_Lalit': 22, 'Raag_Bihag': 17, 'Raag_Bhoopali': 14, 'Raag_Kedar': 1, 'Raag_Abhogi': 1}
+
+Held-out track: 44_Raag_Abhogi
+  True label:      Raag_Abhogi
+  Pred label:      Raag_Bhoopali
+  Track correct:   False
+  Num segments:    94
+  Segment acc:     0.021
+  Vote counts:     {'Raag_Bhoopali': 66, 'Raag_Kedar': 10, 'Raag_Lalit': 5, 'Raag_Bihag': 7, 'Raag_Shree': 4, 'Raag_Abhogi': 2}
+
+Held-out track: 81_Raag_Bihag
+  True label:      Raag_Bihag
+  Pred label:      Raag_Bihag
+  Track correct:   True
+  Num segments:    126
+  Segment acc:     0.595
+  Vote counts:     {'Raag_Lalit': 16, 'Raag_Shree': 8, 'Raag_Bihag': 75, 'Raag_Bhoopali': 7, 'Raag_Abhogi': 14, 'Raag_Kedar': 6}
+
+Held-out track: 83_Raag_Bhoopali
+  True label:      Raag_Bhoopali
+  Pred label:      Raag_Bhoopali
+  Track correct:   True
+  Num segments:    151
+  Segment acc:     0.656
+  Vote counts:     {'Raag_Bhoopali': 99, 'Raag_Bihag': 14, 'Raag_Lalit': 4, 'Raag_Abhogi': 19, 'Raag_Kedar': 14, 'Raag_Shree': 1}
+
+Held-out track: 84_Raag_Kedar
+  True label:      Raag_Kedar
+  Pred label:      Raag_Bhoopali
+  Track correct:   False
+  Num segments:    131
+  Segment acc:     0.046
+  Vote counts:     {'Raag_Shree': 13, 'Raag_Abhogi': 18, 'Raag_Bhoopali': 56, 'Raag_Lalit': 11, 'Raag_Bihag': 27, 'Raag_Kedar': 6}
+
+Held-out track: 8_Raag_Kedar
+  True label:      Raag_Kedar
+  Pred label:      Raag_Bhoopali
+  Track correct:   False
+  Num segments:    136
+  Segment acc:     0.213
+  Vote counts:     {'Raag_Bhoopali': 37, 'Raag_Abhogi': 20, 'Raag_Shree': 3, 'Raag_Kedar': 29, 'Raag_Lalit': 27, 'Raag_Bihag': 20}
+
+=== Summary ===
+Track-level accuracy:   0.462
+Segment-level accuracy: 0.410
+
+=== Full track results ===
+{'track_id': '0_Raag_Shree', 'true_label': 'Raag_Shree', 'track_pred': 'Raag_Shree', 'track_correct': True, 'n_segments': 157, 'segment_accuracy': 0.5159235668789809, 'vote_counts': {'Raag_Shree': 81, 'Raag_Bihag': 27, 'Raag_Kedar': 16, 'Raag_Lalit': 21, 'Raag_Bhoopali': 12}}
+{'track_id': '104_Raga_Lalit_-_Khayal', 'true_label': 'Raag_Lalit', 'track_pred': 'Raag_Bihag', 'track_correct': False, 'n_segments': 181, 'segment_accuracy': 0.1270718232044199, 'vote_counts': {'Raag_Abhogi': 19, 'Raag_Bihag': 61, 'Raag_Bhoopali': 13, 'Raag_Lalit': 23, 'Raag_Shree': 55, 'Raag_Kedar': 10}}
+{'track_id': '105_Raag_Bhoopali', 'true_label': 'Raag_Bhoopali', 'track_pred': 'Raag_Bhoopali', 'track_correct': True, 'n_segments': 167, 'segment_accuracy': 0.6646706586826348, 'vote_counts': {'Raag_Bhoopali': 111, 'Raag_Lalit': 2, 'Raag_Bihag': 9, 'Raag_Abhogi': 25, 'Raag_Shree': 13, 'Raag_Kedar': 7}}
+{'track_id': '10_Raag_Lalit', 'true_label': 'Raag_Lalit', 'track_pred': 'Raag_Bihag', 'track_correct': False, 'n_segments': 19, 'segment_accuracy': 0.2631578947368421, 'vote_counts': {'Raag_Bhoopali': 5, 'Raag_Bihag': 8, 'Raag_Lalit': 5, 'Raag_Shree': 1}}
+{'track_id': '20_Raag_Abhogi', 'true_label': 'Raag_Abhogi', 'track_pred': 'Raag_Kedar', 'track_correct': False, 'n_segments': 128, 'segment_accuracy': 0.1171875, 'vote_counts': {'Raag_Bhoopali': 35, 'Raag_Bihag': 18, 'Raag_Abhogi': 15, 'Raag_Kedar': 46, 'Raag_Lalit': 11, 'Raag_Shree': 3}}
+{'track_id': '27_Raag_Bihag', 'true_label': 'Raag_Bihag', 'track_pred': 'Raag_Bihag', 'track_correct': True, 'n_segments': 199, 'segment_accuracy': 0.6130653266331658, 'vote_counts': {'Raag_Lalit': 25, 'Raag_Bihag': 122, 'Raag_Shree': 19, 'Raag_Kedar': 14, 'Raag_Bhoopali': 15, 'Raag_Abhogi': 4}}
+{'track_id': '33_Raag_Lalit', 'true_label': 'Raag_Lalit', 'track_pred': 'Raag_Bihag', 'track_correct': False, 'n_segments': 122, 'segment_accuracy': 0.2540983606557377, 'vote_counts': {'Raag_Lalit': 31, 'Raag_Bhoopali': 15, 'Raag_Shree': 13, 'Raag_Bihag': 44, 'Raag_Kedar': 12, 'Raag_Abhogi': 7}}
+{'track_id': '37_Raag_Shree', 'true_label': 'Raag_Shree', 'track_pred': 'Raag_Shree', 'track_correct': True, 'n_segments': 198, 'segment_accuracy': 0.7222222222222222, 'vote_counts': {'Raag_Shree': 143, 'Raag_Lalit': 22, 'Raag_Bihag': 17, 'Raag_Bhoopali': 14, 'Raag_Kedar': 1, 'Raag_Abhogi': 1}}
+{'track_id': '44_Raag_Abhogi', 'true_label': 'Raag_Abhogi', 'track_pred': 'Raag_Bhoopali', 'track_correct': False, 'n_segments': 94, 'segment_accuracy': 0.02127659574468085, 'vote_counts': {'Raag_Bhoopali': 66, 'Raag_Kedar': 10, 'Raag_Lalit': 5, 'Raag_Bihag': 7, 'Raag_Shree': 4, 'Raag_Abhogi': 2}}
+{'track_id': '81_Raag_Bihag', 'true_label': 'Raag_Bihag', 'track_pred': 'Raag_Bihag', 'track_correct': True, 'n_segments': 126, 'segment_accuracy': 0.5952380952380952, 'vote_counts': {'Raag_Lalit': 16, 'Raag_Shree': 8, 'Raag_Bihag': 75, 'Raag_Bhoopali': 7, 'Raag_Abhogi': 14, 'Raag_Kedar': 6}}
+{'track_id': '83_Raag_Bhoopali', 'true_label': 'Raag_Bhoopali', 'track_pred': 'Raag_Bhoopali', 'track_correct': True, 'n_segments': 151, 'segment_accuracy': 0.6556291390728477, 'vote_counts': {'Raag_Bhoopali': 99, 'Raag_Bihag': 14, 'Raag_Lalit': 4, 'Raag_Abhogi': 19, 'Raag_Kedar': 14, 'Raag_Shree': 1}}
+{'track_id': '84_Raag_Kedar', 'true_label': 'Raag_Kedar', 'track_pred': 'Raag_Bhoopali', 'track_correct': False, 'n_segments': 131, 'segment_accuracy': 0.04580152671755725, 'vote_counts': {'Raag_Shree': 13, 'Raag_Abhogi': 18, 'Raag_Bhoopali': 56, 'Raag_Lalit': 11, 'Raag_Bihag': 27, 'Raag_Kedar': 6}}
+{'track_id': '8_Raag_Kedar', 'true_label': 'Raag_Kedar', 'track_pred': 'Raag_Bhoopali', 'track_correct': False, 'n_segments': 136, 'segment_accuracy': 0.21323529411764705, 'vote_counts': {'Raag_Bhoopali': 37, 'Raag_Abhogi': 20, 'Raag_Shree': 3, 'Raag_Kedar': 29, 'Raag_Lalit': 27, 'Raag_Bihag': 20}}
+
+=== Segment-level confusion matrix ===
+true\pred         Raag_Abhogi       Raag_Bhoopali     Raag_Bihag        Raag_Kedar        Raag_Lalit        Raag_Shree        
+Raag_Abhogi       17                101               25                56                16                7                 
+Raag_Bhoopali     44                210               23                21                6                 14                
+Raag_Bihag        18                22                197               20                41                27                
+Raag_Kedar        38                93                47                35                38                16                
+Raag_Lalit        26                33                113               22                59                69                
+Raag_Shree        1                 26                44                17                43                224               
+
+=== Segment-level confusion proportions ===
+true\pred         Raag_Abhogi       Raag_Bhoopali     Raag_Bihag        Raag_Kedar        Raag_Lalit        Raag_Shree        
+Raag_Abhogi       0.08              0.45              0.11              0.25              0.07              0.03              
+Raag_Bhoopali     0.14              0.66              0.07              0.07              0.02              0.04              
+Raag_Bihag        0.06              0.07              0.61              0.06              0.13              0.08              
+Raag_Kedar        0.14              0.35              0.18              0.13              0.14              0.06              
+Raag_Lalit        0.08              0.10              0.35              0.07              0.18              0.21              
+Raag_Shree        0.00              0.07              0.12              0.05              0.12              0.63              
+
+=== Raag_Kedar segments with most non-self neighbours ===
+
+Track: 84_Raag_Kedar
+  seg   1 |    20.0–   50.0s | same-NN frac=0.00 | {np.str_('Raag_Abhogi'): 2, np.str_('Raag_Bhoopali'): 2, np.str_('Raag_Lalit'): 1}
+  seg   5 |   100.0–  130.0s | same-NN frac=0.00 | {np.str_('Raag_Abhogi'): 3, np.str_('Raag_Bhoopali'): 2}
+  seg   6 |   120.0–  150.0s | same-NN frac=0.00 | {np.str_('Raag_Abhogi'): 1, np.str_('Raag_Bihag'): 2, np.str_('Raag_Lalit'): 1, np.str_('Raag_Bhoopali'): 1}
+  seg  11 |   220.0–  250.0s | same-NN frac=0.00 | {np.str_('Raag_Shree'): 5}
+  seg  21 |   420.0–  450.0s | same-NN frac=0.00 | {np.str_('Raag_Shree'): 5}
+  seg  24 |   480.0–  510.0s | same-NN frac=0.00 | {np.str_('Raag_Bhoopali'): 2, np.str_('Raag_Bihag'): 2, np.str_('Raag_Lalit'): 1}
+  seg  30 |   600.0–  630.0s | same-NN frac=0.00 | {np.str_('Raag_Bhoopali'): 2, np.str_('Raag_Bihag'): 2, np.str_('Raag_Abhogi'): 1}
+  seg  31 |   620.0–  650.0s | same-NN frac=0.00 | {np.str_('Raag_Lalit'): 2, np.str_('Raag_Bhoopali'): 3}
+  seg  37 |   740.0–  770.0s | same-NN frac=0.00 | {np.str_('Raag_Lalit'): 2, np.str_('Raag_Bihag'): 1, np.str_('Raag_Bhoopali'): 1, np.str_('Raag_Abhogi'): 1}
+  seg  48 |   960.0–  990.0s | same-NN frac=0.00 | {np.str_('Raag_Bhoopali'): 3, np.str_('Raag_Lalit'): 1, np.str_('Raag_Abhogi'): 1}
+
+Track: 8_Raag_Kedar
+  seg   0 |     0.0–   30.0s | same-NN frac=0.00 | {np.str_('Raag_Bihag'): 1, np.str_('Raag_Bhoopali'): 2, np.str_('Raag_Abhogi'): 1, np.str_('Raag_Lalit'): 1}
+  seg   1 |    20.0–   50.0s | same-NN frac=0.00 | {np.str_('Raag_Bihag'): 5}
+  seg   2 |    40.0–   70.0s | same-NN frac=0.00 | {np.str_('Raag_Shree'): 2, np.str_('Raag_Bihag'): 1, np.str_('Raag_Lalit'): 2}
+  seg   4 |    80.0–  110.0s | same-NN frac=0.00 | {np.str_('Raag_Bihag'): 2, np.str_('Raag_Abhogi'): 2, np.str_('Raag_Bhoopali'): 1}
+  seg   5 |   100.0–  130.0s | same-NN frac=0.00 | {np.str_('Raag_Lalit'): 3, np.str_('Raag_Bihag'): 1, np.str_('Raag_Bhoopali'): 1}
+  seg   7 |   140.0–  170.0s | same-NN frac=0.00 | {np.str_('Raag_Lalit'): 2, np.str_('Raag_Bihag'): 3}
+  seg   8 |   160.0–  190.0s | same-NN frac=0.00 | {np.str_('Raag_Bihag'): 2, np.str_('Raag_Lalit'): 3}
+  seg  11 |   220.0–  250.0s | same-NN frac=0.00 | {np.str_('Raag_Lalit'): 4, np.str_('Raag_Bihag'): 1}
+  seg  14 |   280.0–  310.0s | same-NN frac=0.00 | {np.str_('Raag_Bihag'): 4, np.str_('Raag_Lalit'): 1}
+  seg  16 |   320.0–  350.0s | same-NN frac=0.00 | {np.str_('Raag_Abhogi'): 4, np.str_('Raag_Bhoopali'): 1}
+
+=== Raag_Lalit segments with most non-self neighbours ===
+
+Track: 104_Raga_Lalit_-_Khayal
+  seg   0 |     0.0–   30.0s | same-NN frac=0.00 | {np.str_('Raag_Abhogi'): 2, np.str_('Raag_Bhoopali'): 1, np.str_('Raag_Kedar'): 2}
+  seg   6 |   120.0–  150.0s | same-NN frac=0.00 | {np.str_('Raag_Bihag'): 3, np.str_('Raag_Abhogi'): 2}
+  seg   7 |   140.0–  170.0s | same-NN frac=0.00 | {np.str_('Raag_Abhogi'): 1, np.str_('Raag_Bihag'): 3, np.str_('Raag_Kedar'): 1}
+  seg   8 |   160.0–  190.0s | same-NN frac=0.00 | {np.str_('Raag_Bihag'): 3, np.str_('Raag_Kedar'): 2}
+  seg  19 |   380.0–  410.0s | same-NN frac=0.00 | {np.str_('Raag_Abhogi'): 3, np.str_('Raag_Bhoopali'): 2}
+  seg  23 |   460.0–  490.0s | same-NN frac=0.00 | {np.str_('Raag_Abhogi'): 5}
+  seg  24 |   480.0–  510.0s | same-NN frac=0.00 | {np.str_('Raag_Abhogi'): 4, np.str_('Raag_Bhoopali'): 1}
+  seg  26 |   520.0–  550.0s | same-NN frac=0.00 | {np.str_('Raag_Bihag'): 2, np.str_('Raag_Bhoopali'): 2, np.str_('Raag_Abhogi'): 1}
+  seg  29 |   580.0–  610.0s | same-NN frac=0.00 | {np.str_('Raag_Kedar'): 2, np.str_('Raag_Shree'): 1, np.str_('Raag_Bihag'): 1, np.str_('Raag_Abhogi'): 1}
+  seg  31 |   620.0–  650.0s | same-NN frac=0.00 | {np.str_('Raag_Bihag'): 2, np.str_('Raag_Abhogi'): 2, np.str_('Raag_Bhoopali'): 1}
+
+Track: 10_Raag_Lalit
+  seg  10 |   200.0–  230.0s | same-NN frac=0.00 | {np.str_('Raag_Abhogi'): 2, np.str_('Raag_Bhoopali'): 3}
+  seg  12 |   240.0–  270.0s | same-NN frac=0.00 | {np.str_('Raag_Kedar'): 4, np.str_('Raag_Bihag'): 1}
+  seg  15 |   300.0–  330.0s | same-NN frac=0.00 | {np.str_('Raag_Kedar'): 2, np.str_('Raag_Bhoopali'): 3}
+  seg   3 |    60.0–   90.0s | same-NN frac=0.20 | {np.str_('Raag_Bhoopali'): 1, np.str_('Raag_Abhogi'): 1, np.str_('Raag_Lalit'): 1, np.str_('Raag_Bihag'): 1, np.str_('Raag_Kedar'): 1}
+  seg   5 |   100.0–  130.0s | same-NN frac=0.20 | {np.str_('Raag_Lalit'): 1, np.str_('Raag_Shree'): 4}
+  seg  11 |   220.0–  250.0s | same-NN frac=0.20 | {np.str_('Raag_Bihag'): 1, np.str_('Raag_Bhoopali'): 2, np.str_('Raag_Lalit'): 1, np.str_('Raag_Shree'): 1}
+  seg  13 |   260.0–  290.0s | same-NN frac=0.20 | {np.str_('Raag_Lalit'): 1, np.str_('Raag_Bhoopali'): 1, np.str_('Raag_Kedar'): 3}
+  seg  14 |   280.0–  310.0s | same-NN frac=0.20 | {np.str_('Raag_Bhoopali'): 1, np.str_('Raag_Lalit'): 1, np.str_('Raag_Kedar'): 3}
+  seg  18 |   360.0–  378.1s | same-NN frac=0.20 | {np.str_('Raag_Lalit'): 1, np.str_('Raag_Bihag'): 1, np.str_('Raag_Bhoopali'): 2, np.str_('Raag_Abhogi'): 1}
+  seg   0 |     0.0–   30.0s | same-NN frac=0.40 | {np.str_('Raag_Lalit'): 2, np.str_('Raag_Bihag'): 1, np.str_('Raag_Bhoopali'): 1, np.str_('Raag_Abhogi'): 1}
+
+Track: 33_Raag_Lalit
+  seg  21 |   420.0–  450.0s | same-NN frac=0.00 | {np.str_('Raag_Kedar'): 3, np.str_('Raag_Bhoopali'): 2}
+  seg  24 |   480.0–  510.0s | same-NN frac=0.00 | {np.str_('Raag_Kedar'): 2, np.str_('Raag_Bihag'): 3}
+  seg  31 |   620.0–  650.0s | same-NN frac=0.00 | {np.str_('Raag_Shree'): 3, np.str_('Raag_Bhoopali'): 1, np.str_('Raag_Bihag'): 1}
+  seg  36 |   720.0–  750.0s | same-NN frac=0.00 | {np.str_('Raag_Bhoopali'): 1, np.str_('Raag_Bihag'): 3, np.str_('Raag_Shree'): 1}
+  seg  37 |   740.0–  770.0s | same-NN frac=0.00 | {np.str_('Raag_Shree'): 5}
+  seg  38 |   760.0–  790.0s | same-NN frac=0.00 | {np.str_('Raag_Shree'): 4, np.str_('Raag_Bhoopali'): 1}
+  seg  39 |   780.0–  810.0s | same-NN frac=0.00 | {np.str_('Raag_Shree'): 4, np.str_('Raag_Abhogi'): 1}
+  seg  42 |   840.0–  870.0s | same-NN frac=0.00 | {np.str_('Raag_Bhoopali'): 2, np.str_('Raag_Abhogi'): 3}
+  seg  47 |   940.0–  970.0s | same-NN frac=0.00 | {np.str_('Raag_Bhoopali'): 1, np.str_('Raag_Shree'): 4}
+  seg  59 |  1180.0– 1210.0s | same-NN frac=0.00 | {np.str_('Raag_Bhoopali'): 2, np.str_('Raag_Kedar'): 1, np.str_('Raag_Shree'): 1, np.str_('Raag_Bihag'): 1}

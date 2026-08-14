@@ -1,0 +1,92 @@
+1) Tonic / global F0 (7 features)
+From _extract_tonic_features:
+
+tonic_hz
+
+log_tonic_hz
+
+tonic_pc_cents (tonic pitch class in cents)
+
+n_voiced_used
+
+log_n_voiced_used
+
+target_hz
+
+n_tonic_candidates
+
+2) Swara proportions & counts (12 + 12 + 7 = 31)
+Canonical swara order: Sa, re, Re, ga, Ga, Ma, Ma^, Pa, dha, Dha, ni, Ni.
+
+For each of these 12:
+
+swara_prop_{sw}
+
+swara_prop_Sa, swara_prop_re, …, swara_prop_Ni (12 features)
+
+For each of these 12:
+
+log_swara_count_{sw}
+
+log_swara_count_Sa, …, log_swara_count_Ni (12 features)
+
+Plus summary swara stats:
+
+n_voiced_frames
+
+log_n_voiced_frames
+
+n_confident_frames
+
+log_n_confident_frames
+
+confident_ratio
+
+unassigned_frames
+
+log_unassigned_frames (7 features)
+
+3) Relative pitch range (4 features)
+From _extract_range_features:
+
+min_relative_cents
+
+max_relative_cents
+
+median_relative_cents
+
+range_span_cents
+
+4) Pitch histogram (10 features)
+From _extract_pitch_histogram_features and _extract_histogram_peak_features:
+
+hist_bin_size_cents
+
+hist_ref_hz
+
+hist_peak_1_cents
+
+hist_peak_1_height
+
+hist_peak_2_cents
+
+hist_peak_2_height
+
+hist_peak_3_cents
+
+hist_peak_3_height
+
+hist_entropy
+
+hist_concentration
+
+So the full segment feature vector is:
+
+7 tonic
+
+31 swara-related
+
+4 range
+
+10 histogram
+= 52 features per segment.
