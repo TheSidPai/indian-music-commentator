@@ -98,6 +98,12 @@ def build_stage1_schema(
         "pitch_summary": {
             "voiced_range_cents": _compute_voiced_range_summary(normalized_result),
             "pitch_histogram": _compact_histogram_summary(tonic_result),
+
+            # Needed for contour / stability / pattern features
+            "times": normalized_result.get("times"),
+            "voiced_mask": normalized_result.get("voiced_mask"),
+            "relative_cents": normalized_result.get("relative_cents"),
+            "relative_cents_folded": normalized_result.get("relative_cents_folded"),
         },
         "comments": {
             "basic_comment": pipeline_result.get("comment"),

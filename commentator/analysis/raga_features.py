@@ -281,6 +281,246 @@ def _extract_pitch_histogram_features(stage1: Dict[str, Any]) -> Tuple[List[floa
     names = ["hist_bin_size_cents", "hist_ref_hz"] + peak_names
     return values, names
 
+def _get_relative_pitch_track(stage1: Dict[str, Any]) -> np.ndarray:
+    pitch_summary = stage1.get("pitch_summary", {})
+    pitch_histogram = pitch_summary.get("pitch_histogram", {})
+
+    rel_cents = None
+
+    # Prefer an explicit relative contour if present
+    if "relative_cents" in pitch_summary:
+        rel_cents = pitch_summary.get("relative_cents")
+    elif "relative_cents" in pitch_histogram:
+        rel_cents = pitch_histogram.get("relative_cents")
+    elif "voiced_relative_cents" in pitch_summary:
+        rel_cents = pitch_summary.get("voiced_relative_cents")
+
+    arr = _safe_array(rel_cents)
+    arr = arr[np.isfinite(arr)]
+    return arr
+
+
+def _quantize_relative_cents_to_swara(
+    rel_cents: np.ndarray,
+    swara_order: List[str] | None = None,
+) -> List[str]:
+    if swara_order is None:
+        swara_order = CANONICAL_SWARA_ORDER
+
+    swara_centers = np.array(
+        [0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100],
+        dtype=float,
+    )
+
+    rel_cents = np.asarray(rel_cents, dtype=float)
+    rel_cents = rel_cents[np.isfinite(rel_cents)]
+
+    if rel_cents.size == 0:
+        return []
+
+    rel_mod = np.mod(rel_cents, 1200.0)
+
+    seq = []
+    for x in rel_mod:
+        idx = int(np.argmin(np.abs(swara_centers - x)))
+        seq.append(swara_order[idx])
+    return seq
+
+
+def _find_stable_regions(
+    rel_cents: np.ndarray,
+    slope_threshold_cents: float = 8.0,
+    min_region_len: int = 5,
+) -> Tuple[List[Tuple[int, int]], List[Tuple[int, int]]]:
+    rel_cents = np.asarray(rel_cents, dtype=float)
+    rel_cents = rel_cents[np.isfinite(rel_cents)]
+
+    if rel_cents.size < 2:
+        return [], []
+
+    diff = np.diff(rel_cents)
+    stable_mask = np.abs(diff) <= slope_threshold_cents
+
+    stable_regions: List[Tuple[int, int]] = []
+    transition_regions: List[Tuple[int, int]] = []
+
+    start = 0
+    current_stable = bool(stable_mask[0])
+
+    for i in range(1, len(stable_mask)):
+        state = bool(stable_mask[i])
+        if state != current_stable:
+            end = i
+            if current_stable:
+                if (end - start + 1) >= min_region_len:
+                    stable_regions.append((start, end + 1))
+            else:
+                transition_regions.append((start, end + 1))
+            start = i
+            current_stable = state
+
+    end = len(stable_mask)
+    if current_stable:
+        if (end - start + 1) >= min_region_len:
+            stable_regions.append((start, end + 1))
+    else:
+        transition_regions.append((start, end + 1))
+
+    return stable_regions, transition_regions
+
+def _extract_contour_movement_features(stage1: Dict[str, Any]) -> Tuple[List[float], List[str]]:
+    rel_cents = _get_relative_pitch_track(stage1)
+
+    if rel_cents.size < 2:
+        values = [0.0] * 8
+        names = [
+            "mean_abs_pitch_diff_cents",
+            "std_pitch_diff_cents",
+            "mean_positive_pitch_diff_cents",
+            "mean_negative_pitch_diff_cents",
+            "frac_rising_frames",
+            "frac_falling_frames",
+            "frac_flat_frames",
+            "mean_pitch_step_size_cents",
+        ]
+        return values, names
+
+    diff = np.diff(rel_cents)
+    abs_diff = np.abs(diff)
+
+    pos = diff[diff > 0]
+    neg = diff[diff < 0]
+    flat_frac = float(np.mean(abs_diff <= 8.0))
+    rising_frac = float(np.mean(diff > 8.0))
+    falling_frac = float(np.mean(diff < -8.0))
+
+    values = [
+        float(np.mean(abs_diff)) if abs_diff.size else 0.0,
+        float(np.std(diff)) if diff.size else 0.0,
+        float(np.mean(pos)) if pos.size else 0.0,
+        float(np.mean(np.abs(neg))) if neg.size else 0.0,
+        rising_frac,
+        falling_frac,
+        flat_frac,
+        float(np.mean(abs_diff[abs_diff > 8.0])) if np.any(abs_diff > 8.0) else 0.0,
+    ]
+
+    names = [
+        "mean_abs_pitch_diff_cents",
+        "std_pitch_diff_cents",
+        "mean_positive_pitch_diff_cents",
+        "mean_negative_pitch_diff_cents",
+        "frac_rising_frames",
+        "frac_falling_frames",
+        "frac_flat_frames",
+        "mean_pitch_step_size_cents",
+    ]
+    return values, names
+
+def _extract_stability_transition_features(stage1: Dict[str, Any]) -> Tuple[List[float], List[str]]:
+    rel_cents = _get_relative_pitch_track(stage1)
+
+    if rel_cents.size < 2:
+        values = [0.0] * 8
+        names = [
+            "n_stable_regions",
+            "mean_stable_region_len",
+            "max_stable_region_len",
+            "stable_frame_ratio",
+            "n_transition_regions",
+            "mean_transition_region_len",
+            "max_transition_region_len",
+            "transition_frame_ratio",
+        ]
+        return values, names
+
+    stable_regions, transition_regions = _find_stable_regions(
+        rel_cents,
+        slope_threshold_cents=8.0,
+        min_region_len=5,
+    )
+
+    stable_lengths = np.array([e - s for s, e in stable_regions], dtype=float)
+    transition_lengths = np.array([e - s for s, e in transition_regions], dtype=float)
+
+    total_frames = float(len(rel_cents))
+    stable_frames = float(np.sum(stable_lengths)) if stable_lengths.size else 0.0
+    transition_frames = float(np.sum(transition_lengths)) if transition_lengths.size else 0.0
+
+    values = [
+        float(len(stable_regions)),
+        float(np.mean(stable_lengths)) if stable_lengths.size else 0.0,
+        float(np.max(stable_lengths)) if stable_lengths.size else 0.0,
+        stable_frames / total_frames if total_frames > 0 else 0.0,
+        float(len(transition_regions)),
+        float(np.mean(transition_lengths)) if transition_lengths.size else 0.0,
+        float(np.max(transition_lengths)) if transition_lengths.size else 0.0,
+        transition_frames / total_frames if total_frames > 0 else 0.0,
+    ]
+
+    names = [
+        "n_stable_regions",
+        "mean_stable_region_len",
+        "max_stable_region_len",
+        "stable_frame_ratio",
+        "n_transition_regions",
+        "mean_transition_region_len",
+        "max_transition_region_len",
+        "transition_frame_ratio",
+    ]
+    return values, names
+
+def _extract_swara_pattern_features(
+    stage1: Dict[str, Any],
+    swara_order: List[str] | None = None,
+) -> Tuple[List[float], List[str]]:
+    if swara_order is None:
+        swara_order = CANONICAL_SWARA_ORDER
+
+    rel_cents = _get_relative_pitch_track(stage1)
+    swara_seq = _quantize_relative_cents_to_swara(rel_cents, swara_order=swara_order)
+
+    selected_bigrams = [
+        ("Sa", "Re"),
+        ("Re", "Ga"),
+        ("Ga", "Ma"),
+        ("Ma", "Pa"),
+        ("Pa", "Dha"),
+        ("Dha", "Ni"),
+        ("Ni", "Sa"),
+        ("Sa", "Ni"),
+    ]
+
+    selected_trigrams = [
+        ("Sa", "Re", "Ga"),
+        ("Ga", "Ma", "Pa"),
+        ("Pa", "Dha", "Ni"),
+        ("Ni", "Dha", "Pa"),
+        ("Ga", "Re", "Sa"),
+        ("Ni", "Sa", "Re"),
+    ]
+
+    bigrams = list(zip(swara_seq[:-1], swara_seq[1:])) if len(swara_seq) >= 2 else []
+    trigrams = list(zip(swara_seq[:-2], swara_seq[1:-1], swara_seq[2:])) if len(swara_seq) >= 3 else []
+
+    n_big = max(1, len(bigrams))
+    n_tri = max(1, len(trigrams))
+
+    values: List[float] = []
+    names: List[str] = []
+
+    for bg in selected_bigrams:
+        count = sum(1 for x in bigrams if x == bg)
+        values.append(float(count) / n_big)
+        names.append(f"bigram_prop_{bg[0]}_{bg[1]}")
+
+    for tg in selected_trigrams:
+        count = sum(1 for x in trigrams if x == tg)
+        values.append(float(count) / n_tri)
+        names.append(f"trigram_prop_{tg[0]}_{tg[1]}_{tg[2]}")
+
+    return values, names
+
 def extract_raga_features_from_stage1(
     stage1: Dict[str, Any],
     swara_order: List[str] | None = None,
@@ -323,6 +563,18 @@ def extract_raga_features_from_stage1(
     feature_values.extend(hist_values)
     feature_names.extend(hist_names)
 
+    movement_values, movement_names = _extract_contour_movement_features(stage1)
+    feature_values.extend(movement_values)
+    feature_names.extend(movement_names)
+
+    stability_values, stability_names = _extract_stability_transition_features(stage1)
+    feature_values.extend(stability_values)
+    feature_names.extend(stability_names)
+
+    pattern_values, pattern_names = _extract_swara_pattern_features(stage1, swara_order=swara_order)
+    feature_values.extend(pattern_values)
+    feature_names.extend(pattern_names)
+
     feature_vector = np.asarray(feature_values, dtype=float)
 
     feature_vector, feature_names = apply_feature_subset(feature_vector, feature_names)
@@ -334,5 +586,8 @@ def extract_raga_features_from_stage1(
         "analysis_version": stage1.get("meta", {}).get("analysis_version"),
         "n_features": int(feature_vector.shape[0]),
     }
+
+    # for i, name in enumerate(feature_names):
+    #     print(i, name)
 
     return feature_vector, feature_names, meta

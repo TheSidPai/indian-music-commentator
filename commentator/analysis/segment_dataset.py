@@ -187,8 +187,8 @@ def slice_pitch_contour(pitch_obj: Any, start_s: float, end_s: float):
 def build_segment_feature_dataset(
     tracks: list[dict],
     get_pitch_fn: Callable[[str], PitchContourLike],
-    segment_length_s: float = 30.0,
-    hop_s: float = 30.0,
+    segment_length_s: float = 60.0,
+    hop_s: float = 50.0,
     min_duration_s: float = 15.0,
 ) -> tuple[np.ndarray, list[str], list[dict]]:
     """
