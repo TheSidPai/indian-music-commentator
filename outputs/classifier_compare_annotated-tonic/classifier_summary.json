@@ -83,6 +83,6 @@
     "70"
   ],
   "group_col": "track_id",
-  "logreg_accuracy": 0.24015748031496062,
-  "rf_accuracy": 0.2677165354330709
+  "logreg_accuracy": 0.25,
+  "rf_accuracy": 0.27165354330708663
 }

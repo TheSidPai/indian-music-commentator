@@ -4,137 +4,137 @@ Logistic Regression Analysis
 Setup
 -----
 - Model: Multinomial logistic regression with L2 regularization
-- Train segments: 1356
-- Test segments: 453
+- Train segments: 1301
+- Test segments: 508
 - Number of classes: 6
-- Number of features: 41
-- Group-aware split used: no; stratified segment split
+- Number of features: 71
+- Group-aware split used: yes (track_id)
 
 Accuracy
 --------
-- Segment-level accuracy: 0.8035
+- Segment-level accuracy: 0.2402
 
 Classification report
 ---------------------
                precision    recall  f1-score   support
 
-  Raag_Abhogi     0.6786    0.6909    0.6847        55
-Raag_Bhoopali     0.7582    0.8625    0.8070        80
-   Raag_Bihag     0.7945    0.7160    0.7532        81
-   Raag_Kedar     0.8448    0.7313    0.7840        67
-   Raag_Lalit     0.7882    0.8272    0.8072        81
-   Raag_Shree     0.9222    0.9326    0.9274        89
+  Raag_Abhogi     0.0000    0.0000    0.0000        94
+Raag_Bhoopali     0.0000    0.0000    0.0000         0
+   Raag_Bihag     0.5000    0.5317    0.5154       126
+   Raag_Kedar     0.6667    0.1069    0.1842       131
+   Raag_Lalit     0.0000    0.0000    0.0000         0
+   Raag_Shree     0.9762    0.2611    0.4121       157
 
-     accuracy                         0.8035       453
-    macro avg     0.7978    0.7934    0.7939       453
- weighted avg     0.8054    0.8035    0.8028       453
+     accuracy                         0.2402       508
+    macro avg     0.3571    0.1500    0.1853       508
+ weighted avg     0.5976    0.2402    0.3027       508
 
 Confusion matrix
 ----------------
 true\pred      Raag_Abhogi   Raag_Bhoopali  Raag_Bihag    Raag_Kedar    Raag_Lalit    Raag_Shree  
-Raag_Abhogi    38            10             2             2             3             0           
-Raag_Bhoopali  4             69             4             2             1             0           
-Raag_Bihag     3             5              58            2             9             4           
-Raag_Kedar     9             5              1             49            2             1           
-Raag_Lalit     2             1              6             3             67            2           
-Raag_Shree     0             1              2             0             3             83          
+Raag_Abhogi    0             59             16            1             18            0           
+Raag_Bhoopali  0             0              0             0             0             0           
+Raag_Bihag     0             15             67            0             43            1           
+Raag_Kedar     0             93             12            14            12            0           
+Raag_Lalit     0             0              0             0             0             0           
+Raag_Shree     0             5              39            6             66            41          
 
 Confusion proportions
 ---------------------
 true\pred      Raag_Abhogi   Raag_Bhoopali  Raag_Bihag    Raag_Kedar    Raag_Lalit    Raag_Shree  
-Raag_Abhogi    0.69          0.18           0.04          0.04          0.05          0.00        
-Raag_Bhoopali  0.05          0.86           0.05          0.03          0.01          0.00        
-Raag_Bihag     0.04          0.06           0.72          0.02          0.11          0.05        
-Raag_Kedar     0.13          0.07           0.01          0.73          0.03          0.01        
-Raag_Lalit     0.02          0.01           0.07          0.04          0.83          0.02        
-Raag_Shree     0.00          0.01           0.02          0.00          0.03          0.93        
+Raag_Abhogi    0.00          0.63           0.17          0.01          0.19          0.00        
+Raag_Bhoopali  0.00          0.00           0.00          0.00          0.00          0.00        
+Raag_Bihag     0.00          0.12           0.53          0.00          0.34          0.01        
+Raag_Kedar     0.00          0.71           0.09          0.11          0.09          0.00        
+Raag_Lalit     0.00          0.00           0.00          0.00          0.00          0.00        
+Raag_Shree     0.00          0.03           0.25          0.04          0.42          0.26        
 
 Most influential features by class
 ---------------------------------
 
 Raag_Abhogi
-- target_hz: 1.488272 (positive weight)
-- log_swara_count_Dha: 1.447287 (positive weight)
-- log_swara_count_dha: -1.422292 (negative weight)
-- log_unassigned_frames: 1.231426 (positive weight)
-- n_tonic_candidates: 1.130726 (positive weight)
-- hist_concentration: -1.019663 (negative weight)
-- hist_entropy: -0.961974 (negative weight)
-- tonic_hz: -0.799365 (negative weight)
-- log_swara_count_Ma: 0.702756 (positive weight)
-- log_n_confident_frames: -0.665244 (negative weight)
-- range_span_cents: -0.624942 (negative weight)
-- log_n_voiced_frames: -0.604314 (negative weight)
+- target_hz: 2.004478 (positive weight)
+- 50: -1.931530 (negative weight)
+- log_swara_count_re: -1.121619 (negative weight)
+- 54: -1.020106 (negative weight)
+- log_swara_count_Ma: 0.903988 (positive weight)
+- unassigned_frames: -0.816873 (negative weight)
+- log_swara_count_Pa: 0.808483 (positive weight)
+- 59: -0.797323 (negative weight)
+- 52: -0.787054 (negative weight)
+- range_span_cents: 0.722603 (positive weight)
+- 42: 0.690510 (positive weight)
+- n_voiced_frames: -0.625728 (negative weight)
 
 Raag_Bhoopali
-- swara_prop_Ni: -2.227016 (negative weight)
-- swara_prop_re: -1.805956 (negative weight)
-- hist_entropy: 1.482340 (positive weight)
-- log_swara_count_ni: 1.291777 (positive weight)
-- tonic_hz: 1.041644 (positive weight)
-- log_tonic_hz: -1.038357 (negative weight)
-- swara_prop_Ga: 1.008328 (positive weight)
-- swara_prop_Ma^: -0.978721 (negative weight)
-- swara_prop_Re: 0.962361 (positive weight)
-- hist_peak_1_height: 0.927950 (positive weight)
-- log_swara_count_Sa: -0.924628 (negative weight)
-- log_swara_count_Re: 0.914685 (positive weight)
+- swara_prop_re: -2.057740 (negative weight)
+- 53: -1.615585 (negative weight)
+- 42: -1.266851 (negative weight)
+- swara_prop_Ni: -1.149020 (negative weight)
+- log_swara_count_Re: 1.027163 (positive weight)
+- log_tonic_hz: -1.024963 (negative weight)
+- 50: 1.003954 (positive weight)
+- log_swara_count_ni: 0.907414 (positive weight)
+- hist_entropy: 0.892017 (positive weight)
+- target_hz: -0.887450 (negative weight)
+- 54: 0.883416 (positive weight)
+- swara_prop_Ma^: -0.869202 (negative weight)
 
 Raag_Bihag
-- swara_prop_ni: -1.809030 (negative weight)
-- log_swara_count_Dha: -1.620313 (negative weight)
-- swara_prop_Ni: 1.200144 (positive weight)
-- swara_prop_Dha: 1.125592 (positive weight)
-- hist_entropy: -1.014596 (negative weight)
-- log_tonic_hz: 0.945988 (positive weight)
-- swara_prop_Re: -0.942726 (negative weight)
-- log_swara_count_dha: 0.941578 (positive weight)
-- log_swara_count_Ma^: -0.899061 (negative weight)
-- log_swara_count_ni: 0.884236 (positive weight)
-- range_span_cents: 0.870469 (positive weight)
-- log_swara_count_Ni: -0.807326 (negative weight)
+- hist_entropy: -2.039585 (negative weight)
+- log_swara_count_Ma^: -1.275262 (negative weight)
+- swara_prop_ni: -1.132360 (negative weight)
+- 46: 1.026132 (positive weight)
+- 41: -0.962424 (negative weight)
+- swara_prop_Re: -0.958848 (negative weight)
+- n_tonic_candidates: 0.950431 (positive weight)
+- 52: -0.890645 (negative weight)
+- swara_prop_Ni: 0.888645 (positive weight)
+- 49: -0.877704 (negative weight)
+- swara_prop_re: 0.794698 (positive weight)
+- log_swara_count_Dha: -0.777286 (negative weight)
 
 Raag_Kedar
-- log_swara_count_Ma^: 1.586100 (positive weight)
-- swara_prop_ni: 1.568024 (positive weight)
-- log_swara_count_Re: 1.197899 (positive weight)
-- swara_prop_dha: -1.037711 (negative weight)
-- log_swara_count_Dha: 1.009913 (positive weight)
-- target_hz: 1.000187 (positive weight)
-- swara_prop_Ma^: -0.994964 (negative weight)
-- log_swara_count_ni: -0.814692 (negative weight)
-- swara_prop_Dha: -0.662382 (negative weight)
-- swara_prop_re: 0.655838 (positive weight)
-- range_span_cents: -0.567143 (negative weight)
-- swara_prop_Ga: -0.522034 (negative weight)
+- target_hz: 1.581603 (positive weight)
+- 50: -1.382993 (negative weight)
+- 51: -1.327703 (negative weight)
+- 49: 1.091682 (positive weight)
+- 42: 1.043903 (positive weight)
+- hist_peak_1_cents: 0.893691 (positive weight)
+- swara_prop_ni: 0.870004 (positive weight)
+- log_swara_count_Ma^: 0.868504 (positive weight)
+- swara_prop_Ma^: -0.862876 (negative weight)
+- log_swara_count_ni: -0.764193 (negative weight)
+- 52: 0.762838 (positive weight)
+- log_swara_count_Dha: 0.736224 (positive weight)
 
 Raag_Lalit
-- log_swara_count_Pa: -1.559501 (negative weight)
-- log_swara_count_Ni: 1.537972 (positive weight)
-- log_swara_count_Ma: -1.199019 (negative weight)
-- log_swara_count_dha: 1.022713 (positive weight)
-- swara_prop_Ma^: 1.017127 (positive weight)
-- hist_entropy: 0.789852 (positive weight)
-- log_swara_count_Re: -0.785788 (negative weight)
-- confident_ratio: 0.779201 (positive weight)
-- swara_prop_Re: -0.704554 (negative weight)
-- log_swara_count_Ma^: -0.670912 (negative weight)
-- log_swara_count_re: 0.646627 (positive weight)
-- swara_prop_Ga: 0.637213 (positive weight)
+- hist_entropy: 1.831587 (positive weight)
+- 41: 1.584971 (positive weight)
+- log_swara_count_Pa: -1.568892 (negative weight)
+- 50: 1.420465 (positive weight)
+- log_swara_count_dha: 1.284673 (positive weight)
+- 46: -1.189839 (negative weight)
+- 52: 1.135337 (positive weight)
+- log_swara_count_Ni: 1.131402 (positive weight)
+- swara_prop_Ma^: 0.953880 (positive weight)
+- 42: 0.869733 (positive weight)
+- log_swara_count_Ma: -0.861565 (negative weight)
+- range_span_cents: -0.853363 (negative weight)
 
 Raag_Shree
-- n_tonic_candidates: -1.720863 (negative weight)
-- target_hz: -1.394599 (negative weight)
-- swara_prop_Ga: -0.965618 (negative weight)
-- log_swara_count_re: 0.946228 (positive weight)
-- swara_prop_ni: 0.914610 (positive weight)
-- log_swara_count_ni: -0.895076 (negative weight)
-- swara_prop_Ni: 0.867362 (positive weight)
-- swara_prop_ga: -0.866024 (negative weight)
-- log_swara_count_Dha: -0.760286 (negative weight)
-- log_swara_count_ga: -0.731965 (negative weight)
-- range_span_cents: 0.731345 (positive weight)
-- swara_prop_Dha: -0.712048 (negative weight)
+- 53: 1.766644 (positive weight)
+- target_hz: -1.550766 (negative weight)
+- log_swara_count_re: 1.527597 (positive weight)
+- 42: -1.463643 (negative weight)
+- n_tonic_candidates: -1.225379 (negative weight)
+- hist_entropy: -1.020599 (negative weight)
+- 52: -1.000228 (negative weight)
+- 49: -0.993629 (negative weight)
+- confident_ratio: 0.886540 (positive weight)
+- n_confident_frames: 0.771224 (positive weight)
+- 48: 0.721969 (positive weight)
+- swara_prop_Ni: 0.721267 (positive weight)
 
 Interpretation notes
 --------------------

@@ -323,7 +323,19 @@ def build_segment_feature_dataset(
     # other's artifacts.
     tonic_tag = "_annotated-tonic" if get_tonic_fn is not None else ""
 
+    # track_id must be exported, not just used in-memory: without it, consumers
+    # of this CSV cannot tell which rows came from the same recording, and any
+    # random train/test split will scatter one recording across both sides.
+    # Segments are overlapping windows of a single performance, so that leaks
+    # near-duplicate rows into the test set and inflates accuracy badly (this
+    # is exactly how the retired 0.9051 figure arose -- see the 2026-08-16
+    # entry in docs/experiments/2026-06-raga-baseline-log.md).
+    #
+    # It is a grouping key, NOT a feature. Kept as a string so that consumers
+    # selecting numeric columns as features cannot pick it up by accident;
+    # segment_index is deliberately not exported for the same reason.
     df = pd.DataFrame(X)
+    df.insert(0, "track_id", track_ids)
     df.insert(0, "raga_label", y)
     df.to_csv(OUTPUTS_DIR / f"key_segment_features_table{tonic_tag}.csv")
 

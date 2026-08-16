@@ -12,7 +12,7 @@ Setup
 
 Accuracy
 --------
-- Segment-level accuracy: 0.2677
+- Segment-level accuracy: 0.2717
 
 Classification report
 ---------------------
@@ -20,57 +20,57 @@ Classification report
 
   Raag_Abhogi     0.0000    0.0000    0.0000        94
 Raag_Bhoopali     0.0000    0.0000    0.0000         0
-   Raag_Bihag     0.5963    0.5159    0.5532       126
-   Raag_Kedar     0.7619    0.1221    0.2105       131
+   Raag_Bihag     0.1176    0.0159    0.0280       126
+   Raag_Kedar     0.0000    0.0000    0.0000       131
    Raag_Lalit     0.0000    0.0000    0.0000         0
-   Raag_Shree     0.9483    0.3503    0.5116       157
+   Raag_Shree     1.0000    0.8662    0.9283       157
 
-     accuracy                         0.2677       508
-    macro avg     0.3844    0.1647    0.2126       508
- weighted avg     0.6375    0.2677    0.3496       508
+     accuracy                         0.2717       508
+    macro avg     0.1863    0.1470    0.1594       508
+ weighted avg     0.3382    0.2717    0.2938       508
 
 Confusion matrix
 ----------------
 true\pred      Raag_Abhogi   Raag_Bhoopali  Raag_Bihag    Raag_Kedar    Raag_Lalit    Raag_Shree  
-Raag_Abhogi    0             77             4             3             10            0           
+Raag_Abhogi    0             76             1             0             17            0           
 Raag_Bhoopali  0             0              0             0             0             0           
-Raag_Bihag     0             15             65            0             44            2           
-Raag_Kedar     0             94             7             16            13            1           
+Raag_Bihag     0             80             2             0             44            0           
+Raag_Kedar     0             108            14            0             9             0           
 Raag_Lalit     0             0              0             0             0             0           
-Raag_Shree     0             7              33            2             60            55          
+Raag_Shree     0             6              0             0             15            136         
 
 Confusion proportions
 ---------------------
 true\pred      Raag_Abhogi   Raag_Bhoopali  Raag_Bihag    Raag_Kedar    Raag_Lalit    Raag_Shree  
-Raag_Abhogi    0.00          0.82           0.04          0.03          0.11          0.00        
+Raag_Abhogi    0.00          0.81           0.01          0.00          0.18          0.00        
 Raag_Bhoopali  0.00          0.00           0.00          0.00          0.00          0.00        
-Raag_Bihag     0.00          0.12           0.52          0.00          0.35          0.02        
-Raag_Kedar     0.00          0.72           0.05          0.12          0.10          0.01        
+Raag_Bihag     0.00          0.63           0.02          0.00          0.35          0.00        
+Raag_Kedar     0.00          0.82           0.11          0.00          0.07          0.00        
 Raag_Lalit     0.00          0.00           0.00          0.00          0.00          0.00        
-Raag_Shree     0.00          0.04           0.21          0.01          0.38          0.35        
+Raag_Shree     0.00          0.04           0.00          0.00          0.10          0.87        
 
 Global feature importance
 -------------------------
-- hist_peak_1_cents: 0.067061
-- target_hz: 0.054129
-- tonic_hz: 0.043819
-- swara_prop_Dha: 0.039934
-- log_tonic_hz: 0.039680
-- swara_prop_dha: 0.029299
-- swara_prop_Re: 0.028950
-- swara_prop_ni: 0.028770
-- log_swara_count_dha: 0.026682
-- log_swara_count_ni: 0.026344
-- 50: 0.025806
-- log_swara_count_Re: 0.025401
-- 64: 0.024486
-- log_swara_count_Dha: 0.024481
-- log_swara_count_Ni: 0.023909
-- swara_prop_Ni: 0.023864
-- log_swara_count_Ma^: 0.023514
-- 63: 0.022795
-- swara_prop_Ma^: 0.022207
-- log_swara_count_re: 0.020701
+- log_tonic_hz: 0.113992
+- tonic_hz: 0.106995
+- swara_prop_Dha: 0.049470
+- swara_prop_Re: 0.036965
+- log_swara_count_Dha: 0.036461
+- log_swara_count_Ma: 0.035750
+- swara_prop_Ma: 0.033129
+- log_swara_count_re: 0.032001
+- log_swara_count_dha: 0.031477
+- log_swara_count_Re: 0.029736
+- swara_prop_dha: 0.029612
+- swara_prop_Pa: 0.028834
+- hist_peak_1_cents: 0.028511
+- log_swara_count_Ma^: 0.028097
+- swara_prop_re: 0.027381
+- swara_prop_Ga: 0.026592
+- log_swara_count_Ga: 0.025399
+- log_swara_count_Pa: 0.025070
+- swara_prop_Ma^: 0.024064
+- target_hz: 0.021067
 
 Interpretation notes
 --------------------
