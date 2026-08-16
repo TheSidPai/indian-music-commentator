@@ -11,7 +11,12 @@ from sklearn.manifold import TSNE
 import matplotlib.pyplot as plt
 import numpy as np
 
-def plot_tsne(X, labels, track_ids):
+def plot_tsne(X, labels, track_ids, out_path=None):
+    if out_path is None:
+        n_ragas = len(np.unique(labels))
+        n_features = X.shape[1]
+        out_path = f"tsne_plot_{n_ragas}raga_{n_features}feat.png"
+
     tsne = TSNE(n_components=2, init="random", random_state=0, perplexity=3)
     X_emb = tsne.fit_transform(X)
 
@@ -33,8 +38,8 @@ def plot_tsne(X, labels, track_ids):
 
     plt.legend()
     plt.tight_layout()
-    plt.savefig("tsne_plot.png", dpi=200, bbox_inches="tight")
-    print("Saved t-SNE plot to tsne_plot.png")
+    plt.savefig(out_path, dpi=200, bbox_inches="tight")
+    print(f"Saved t-SNE plot to {out_path}")
     plt.close()
 
 DATA_HOME = "/home/thesidpai/mir_projects/data"

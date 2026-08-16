@@ -20,7 +20,7 @@ def plot_tsne_segments(
     labels,
     track_ids,
     segment_indices=None,
-    out_path="tsne_segments.png",
+    out_path=None,
     annotate=False,
     max_annotations=80,
     random_state=0,
@@ -33,6 +33,11 @@ def plot_tsne_segments(
     X = np.asarray(X, dtype=float)
     labels = np.asarray(labels)
     track_ids = np.asarray(track_ids)
+
+    if out_path is None:
+        n_ragas = len(np.unique(labels))
+        n_features = X.shape[1]
+        out_path = f"tsne_segments_{n_ragas}raga_{n_features}feat.png"
 
     if segment_indices is None:
         segment_indices = np.arange(len(labels))
@@ -298,12 +303,19 @@ def build_segment_feature_dataset(
     df.insert(0, "raga_label", y)
     df.to_csv('key_segment_features_table.csv')
 
+    n_ragas = len(np.unique(y))
+    n_features = X.shape[1]
+    tsne_out_path = (
+        f"tsne_segments_{n_ragas}raga_{n_features}feat_"
+        f"{int(segment_length_s)}s-{int(hop_s)}shop.png"
+    )
+
     plot_tsne_segments(
         X,
         y,
         track_ids,
         segment_indices=segment_indices,
-        out_path="tsne_segments.png",
+        out_path=tsne_out_path,
         annotate=False,
     )
 
