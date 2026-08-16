@@ -31,51 +31,68 @@ Repository tree
 │       ├── 2026-06-raga-baseline-log.md
 │       ├── Raga Feaures.txt
 │       ├── segment_3_raag_result.txt
-│       └── segment_6_raag_result.txt
+│       ├── segment_6_raag_result.txt
+│       └── tsne/
+│           ├── README.md
+│           └── (6 archived historical t-SNE snapshots)
+├── outputs/
+│   ├── classifier_compare/
+│   │   ├── classifier_summary.json
+│   │   ├── logistic_regression_analysis.txt
+│   │   └── random_forest_analysis.txt
+│   ├── experiment_three_hybrid_results.csv
+│   ├── key_segment_features_table.csv
+│   └── tsne_segments.png
 ├── tests/
 │   ├── classifier_compare.py
 │   ├── inspect_features.py
-│   ├── test.py
-│   ├── test_mirdata.py
-│   ├── test_segment.py
-│   └── output/
-│       ├── classifier_summary.json
-│       ├── logistic_regression_analysis.txt
-│       └── random_forest_analysis.txt
+│   ├── run_compmusic_check.py
+│   ├── run_mirdata_check.py
+│   ├── run_segment_baseline_knn.py
+│   └── run_stage1_sanity_check.py
 ├── commentator.ipynb
-├── experiment_three_hybrid_results.csv
-├── key_segment_features_table.csv
-├── test.ipynb
-├── test.py
-├── test_segment_lr_rf.py
-└── tsne_segments.png
+├── run_pipeline_sanity_check.py
+├── run_segment_lr_rf.py
+└── test.ipynb
 
-Note: hidden environment/cache folders such as .git, .venv, and .pytest_cache are omitted above for readability.
+Note: hidden environment/cache folders such as .git, .venv, and .pytest_cache are omitted above for readability. __pycache__/ and *.pyc are gitignored (not committed).
+
+Recent restructuring (this is not itself dated -- see docs/experiments/2026-06-raga-baseline-log.md for the dated history)
+----------------------------------------------------------------------------------------------------------------------------
+
+- Every script under tests/ (and the two at the repo root) that isn't an actual pytest test was renamed from test_*.py to run_*.py, so pytest no longer tries to collect them as tests. Only commentator/tests/test_pitch_contour.py is a real pytest test.
+  - test_segment_lr_rf.py -> run_segment_lr_rf.py
+  - test.py (root) -> run_pipeline_sanity_check.py
+  - tests/test_mirdata.py -> tests/run_mirdata_check.py
+  - tests/test_segment.py -> tests/run_segment_baseline_knn.py
+  - tests/test.py -> tests/run_stage1_sanity_check.py
+- Generated artifacts (feature CSVs, t-SNE plots, classifier reports) now write into outputs/ at the repo root instead of being scattered at the repo root and inside tests/. This is resolved relative to each script's own file location, not the caller's cwd, so it lands in the same outputs/ regardless of where a script is run from.
+- Added tests/run_compmusic_check.py: a smoke test for the larger CompMusic "Indian Art Music Raga Recognition Dataset" (mirdata id compmusic_raga, Hindustani subset = HMD: 300 recordings, 30 ragas, 10 recordings/raga), which is the planned scale-up target beyond the current 108-track Saraga subset. Not yet run.
 
 Plain-English summary of the repo
 ---------------------------------
 
 The repo is centered on Hindustani raga analysis from pitch contours.
 The main implementation lives under commentator/, with the analysis code split into tonic estimation, swara analysis, Stage-1 schema building, segment dataset construction, and feature extraction.
-The docs/experiments folder records the baseline history and experiment decisions.
-The tests/ folder contains evaluation scripts, feature inspection helpers, and saved output reports.
-There are also generated artifacts at the repo root, including the CSV feature table and the t-SNE plot.
+The docs/experiments folder records the baseline history and experiment decisions, including an archive of every historical t-SNE snapshot in docs/experiments/tsne/.
+The tests/ folder contains evaluation scripts and feature inspection helpers (not, mostly, actual pytest tests -- see the renaming note above).
+Generated artifacts (the CSV feature tables, t-SNE plots, classifier reports) live under outputs/.
 
 What the current docs say
 -------------------------
 
 The baseline log says the current best classifier is Random Forest, because it reached the highest reported accuracy in the June 2026 comparison: 0.9051 segment-level accuracy, versus 0.8035 for logistic regression.
-That result came from the CSV-based comparison flow in tests/classifier_compare.py, not from the older KNN baseline.
+That result came from the CSV-based comparison flow in tests/classifier_compare.py (reports now written to outputs/classifier_compare/), not from the older KNN baseline.
 
-The current test file in use
-----------------------------
+The current entrypoint in use
+------------------------------
 
-The active script is test_segment_lr_rf.py at the repo root.
+The active script is run_segment_lr_rf.py at the repo root (renamed from test_segment_lr_rf.py).
 
-How the current pipeline works when running test_segment_lr_rf.py
------------------------------------------------------------------
+How the current pipeline works when running run_segment_lr_rf.py
+------------------------------------------------------------------
 
-1. The script starts in test_segment_lr_rf.py and initializes the Saraga dataset through commentator/io/loaders.py via initialize_saraga(DATA_HOME).
+1. The script starts in run_segment_lr_rf.py and initializes the Saraga dataset through commentator/io/loaders.py via initialize_saraga(DATA_HOME).
 2. For each chosen track, it gets a PitchContour with get_pitch_for_track(...), which wraps the mirdata pitch data in commentator/core/pitch_contour.py.
 3. The segment builder in commentator/analysis/segment_dataset.py infers track duration from pitch_obj.times, then creates 30-second windows with a 20-second hop and a 15-second minimum duration.
 4. Each window is sliced into a smaller PitchContour with slice_pitch_contour(...).
@@ -88,8 +105,8 @@ How the current pipeline works when running test_segment_lr_rf.py
    - a short textual comment from the same swara/tonic helpers
 8. extract_raga_features_from_stage1(...) in commentator/analysis/raga_features.py converts that Stage-1 dict into a numeric feature vector.
 9. That feature vector is built from tonic, swara, range, histogram, movement, stability, and pattern features, then reduced again by apply_feature_subset(...).
-10. build_segment_feature_dataset(...) collects all valid segments into X, feature_names, and records, and also writes key_segment_features_table.csv plus tsne_segments.png as side artifacts.
-11. Back in test_segment_lr_rf.py, failed segments are dropped, y labels and groups are built from raga_label and track_id, and the evaluation uses LeaveOneGroupOut so the held-out unit is always an entire track.
+10. build_segment_feature_dataset(...) collects all valid segments into X, feature_names, and records, and also writes outputs/key_segment_features_table.csv plus an outputs/tsne_segments_*.png (filename encodes raga count, feature count, and segment window) as side artifacts.
+11. Back in run_segment_lr_rf.py, failed segments are dropped, y labels and groups are built from raga_label and track_id, and the evaluation uses LeaveOneGroupOut so the held-out unit is always an entire track.
 12. The script then fits and evaluates two pipelines:
    - Logistic Regression: SimpleImputer -> StandardScaler -> LogisticRegression
    - Random Forest: SimpleImputer -> RandomForestClassifier
@@ -99,7 +116,7 @@ How the current pipeline works when running test_segment_lr_rf.py
 Files involved in that flow
 ---------------------------
 
-- test_segment_lr_rf.py
+- run_segment_lr_rf.py
 - commentator/io/loaders.py
 - commentator/core/pitch_contour.py
 - commentator/analysis/segment_dataset.py
@@ -113,5 +130,6 @@ Bottom line
 -----------
 
 If you want the classifier with the highest accuracy in the docs, use Random Forest.
-If you want the current runnable test entrypoint, use test_segment_lr_rf.py.
-If you want the older baseline, that was test_segment.py with KNN.
+If you want the current runnable test entrypoint, use run_segment_lr_rf.py.
+If you want the older baseline, that was tests/run_segment_baseline_knn.py (formerly test_segment.py) with KNN.
+If you want to try the larger CompMusic/Dunya scale-up dataset, tests/run_compmusic_check.py is the starting point (not yet run).
