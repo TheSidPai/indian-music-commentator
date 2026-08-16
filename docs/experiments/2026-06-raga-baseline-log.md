@@ -788,6 +788,16 @@ The error is no longer localized in the Stage-2 Language Layer; it tracks back t
 
 - `mirdata` already ships a dedicated loader, `compmusic_raga` (`mirdata.initialize("compmusic_raga", ...)`), for this exact dataset. `dataset.download()` fetches the free features zip automatically with zero credentials (audio is deliberately excluded from the automatic download). Each track exposes `track.pitch` (an `F0Data` object with the same `times`/`frequencies`/`voicing` shape as `saraga_hindustani`), `track.tonic`, `track.raga`, and `track.tradition` (`"hindustani"` vs `"carnatic"`) — meaning the Dunya web API / `compmusic` client route is unnecessary for the pitch+metadata scaling goal.
 
+> **Correction (2026-08-16, after actually running it):** the second half of this
+> claim is wrong. The loader and the `tradition` field both exist, but mirdata's
+> `compmusic_raga` **index v1.0 contains only the 477 Carnatic recordings** —
+> `dataset.track_ids` yields *zero* Hindustani tracks, and every indexed track
+> reports `tradition == "carnatic"`. The downloaded archive does contain both
+> traditions; mirdata simply cannot see half of it. The headline conclusion
+> (no Dunya API needed) still holds — the download works credential-free — but
+> the Hindustani half must be read off the extracted tree directly. See the
+> 2026-08-16 entry below.
+
 **New test harness**
 
 - Added `tests/run_compmusic_check.py`: initializes `compmusic_raga`, downloads the features archive, filters to Hindustani-tradition tracks, checks the raga distribution against the documented "10 recordings per raga," and wraps one sample track's pitch into the existing `PitchContour` dataclass and runs it through `build_stage1_schema(...)` — confirming (or breaking on) the claim that no Stage-1/Stage-2 code needs to change to consume this dataset. Not yet run.
@@ -807,3 +817,95 @@ Housekeeping pass to reduce friction while scaling up, in the same spirit as the
 - **`test_*.py` naming collision**: several files under `tests/` and the repo root were named `test_*.py` without being actual pytest tests (no `test_` functions; some execute pipeline code at module level), which caused `pytest` to try to collect and execute them, crashing on missing local paths. Renamed every non-pytest driver script to `run_*.py` (`test_segment_lr_rf.py` → `run_segment_lr_rf.py`, `tests/test_segment.py` → `tests/run_segment_baseline_knn.py`, `tests/test_mirdata.py` → `tests/run_mirdata_check.py`, etc.), leaving `test_` reserved for `commentator/tests/test_pitch_contour.py`, the one real pytest test.
 - **Generated artifacts consolidated**: feature CSVs, t-SNE plots, and classifier reports were scattered across the repo root and `tests/`. They now write into `outputs/` (`outputs/key_segment_features_table.csv`, `outputs/classifier_compare/`, etc.), resolved relative to each script's own file location rather than the caller's working directory — which also explains why two differently-shaped copies of `key_segment_features_table.csv` existed side-by-side in `tests/` and at the repo root prior to this cleanup (they were written by the same code run from two different working directories).
 - **Stopped tracking `__pycache__/`/`*.pyc`** in git; added to `.gitignore`.
+
+---
+
+## 2026-08-16 – Running HMD for real, and discovering the tonic estimator is unreliable
+
+Three connected findings: the HMD harness needed rewriting, the dataset scale-up
+is confirmed viable, and the ground-truth tonics it exposes revealed a serious
+problem in Stage-1 that also affects the existing Saraga results.
+
+### 1. `tests/run_compmusic_check.py` — first real run
+
+- **Initial failure was trivial and unrelated to the dataset**: `ModuleNotFoundError: No module named 'commentator'`. Running a script inside `tests/` puts `tests/` on `sys.path`, not the repo root. Fixed with an explicit `sys.path` bootstrap resolved from the script's own location. *Note: every other script under `tests/` shares this latent problem and only works when invoked with the repo root already importable.*
+- **Download throughput**: mirdata's downloader pulled at ~100 kB/s (8–17 h ETA for the 3.44 GB archive). Zenodo throttles **per connection, not per client** — 8 parallel HTTP range requests achieved ~900 kB/s, completing in ~1 h. The reassembled file was verified against mirdata's expected md5 (`5dfc26dd1c2652ab75a62faec7f45f08`) before being handed over; mirdata then recognised it and skipped its own download. Worth remembering for any future large Zenodo fetch.
+- **The mirdata index limitation** (see correction above): `Hindustani tracks: 0` on the first successful run. Confirmed by inspecting the shipped index JSON directly — 477 tracks, none Hindustani.
+
+### 2. HMD is confirmed viable as a scale-up target
+
+Rewritten to read `RagaDataset/Hindustani/` off the extracted tree:
+
+```
+Hindustani tracks: 300
+Ragas: 30          (exactly 10 recordings per raga, all 30)
+```
+
+- **The documented HMD numbers hold exactly** — 300 recordings, 30 ragas, 10 each, versus the current 6 usable ragas at 2–3 tracks each.
+- `.pitch` files are two-column TSVs (time_s, freq_hz; 0.0 = unvoiced) and `.tonic` a single float — both feed `PitchContour` → `build_stage1_schema(...)` with **zero pipeline changes**, confirming the original compatibility claim.
+- **Tracks must be joined to metadata by MBID, not by path.** The dataset's own `_info_/path_mbid_ragaid.txt` records paths that do not match what is on disk for **64 of the 300** tracks (album-name mismatches). A path-based join silently loses 21% of the dataset; the MBID suffix present on every feature filename resolves all 300.
+
+### 3. Tonic estimation validated against ground truth — and it fails often
+
+HMD ships an annotated tonic per recording, which prompted checking whether
+**Saraga does too. It does** — `track.tonic` (from `ctonic_path`) has been
+available on every track all along, and the pipeline has never used it,
+estimating the tonic instead. So the estimator's error rate had never been
+measured on any dataset.
+
+Added `tests/run_tonic_validation.py`, which compares estimated vs annotated
+tonic at two levels. Segment level is the one that matters: the classifier
+calls `build_stage1_schema` **per 30 s window**, so every segment carries its
+own independently estimated tonic.
+
+Results on the 13-track / 6-raga experiment set (n=1809 segments — matching the
+segment count in `segment_6_raag_result.txt`, i.e. the same data the 0.9051
+figure was computed on):
+
+| | track level (n=13) | segment level (n=1809) |
+|---|---|---|
+| within ±50 cents (raw) | 46.2% | **26.4%** |
+| within ±50 cents (octave-folded) | 61.5% | **49.8%** |
+| pitch-class errors | 38.5% | **50.2%** |
+| median abs. error (folded) | 5.0 cents | 75.0 cents |
+
+Why the two columns differ: swara assignment folds cents mod 1200
+(`swara_analyzer.py`), so a **pure octave error is largely harmless** to
+`swara_prop_*` (though it still corrupts `tonic_hz`, `log_tonic_hz`, and the
+relative-cents range features). A **pitch-class error shifts every swara
+assignment** and invalidates the whole vector.
+
+- **Half of all training segments (50.2%) have a pitch-class-wrong tonic.** Median folded error of 75 cents means these are wrong scale degrees, not near-misses.
+- Track-level failures are musically coherent, the signature of a histogram estimator locking onto the wrong scale degree: `8_Raag_Kedar` +695¢ (a perfect fifth — Pa read as Sa), `84_Raag_Kedar` +495¢, `44_Raag_Abhogi` −485¢, `10_Raag_Lalit` +405¢, `81_Raag_Bihag` −305¢.
+- Errors are **concentrated per track** (`81_Raag_Bihag` 81.7% of segments, `44_Raag_Abhogi` 70.2%, `10_Raag_Lalit` 68.4%), and correlate with raga — both Kedar tracks fail; both Bhoopali and both Shree pass.
+
+**Implication for the 0.9051 RF baseline.** This does *not* show the number was
+measured incorrectly — the grouped `LeaveOneGroupOut` protocol is sound. But a
+*consistent* wrong tonic offset within a track still yields consistent features,
+so the classifier may be keying on recording-specific estimator artifacts
+("Kedar's tonic reads a fourth sharp") rather than raga structure. That would
+score well under leave-one-track-out on 2–3 tracks per raga while failing to
+generalise to HMD's 10 recordings per raga. Untested either way as of this entry.
+
+*Caveats:* annotations are treated as ground truth without independent
+verification (the octave-error cases in particular could reflect annotation
+octave ambiguity), and the HMD spot-check used the first recording of each raga
+rather than a random sample.
+
+### 4. `commentator/io/` restructured into per-dataset adapters
+
+Driven by a concrete problem: the HMD loading code was living in
+`tests/run_compmusic_check.py`, and the first script written against it had to
+`sys.path.insert` into `tests/` and import from a test script.
+
+- `commentator/io/loaders.py` → **`saraga.py`** (`git mv`, history preserved), plus a `SaragaHindustani` adapter and a new `get_tonic_for_track(...)`.
+- New **`commentator/io/compmusic.py`** holding the HMD loading logic and the reasoning about mirdata's index.
+- Both expose the same interface — `name`, `list_tracks()`, `get_pitch(track_id)`, `get_tonic(track_id)` — so pipeline code works against either without changes. `build_segment_feature_dataset(tracks, get_pitch_fn, ...)` already took a callback, so no analysis code needed to change.
+- Deliberately **not** added: a `Protocol` base class, a `get_dataset(name)` factory, or a `loaders.py` compatibility shim — all speculative abstraction at two datasets and five call sites. Existing module-level function names are unchanged, so only import lines moved (7 files).
+- `tests/run_compmusic_check.py` dropped from ~200 to ~85 lines. Verified: all touched files compile, `pytest` still collects exactly 1 real test, the smoke test still passes, and a single dataset-agnostic function runs against both adapters.
+
+### Next steps
+
+- **Re-run the segment/classifier comparison using annotated tonics instead of estimated ones**, on the existing 13-track Saraga set, to measure what the 0.9051 becomes when Stage-1 is fed a correct tonic. This is the immediate priority — it determines whether the current baseline reflects raga structure or estimator artifacts.
+- Investigate the tonic estimator itself (octave/fifth resolution in `resolve_tonic_octave`), and consider accepting an optional externally-supplied tonic in `build_stage1_schema(...)` so annotated tonics can be used when available.
+- Then scale the comparison to HMD (30 ragas × 10 recordings) using annotated tonics throughout.

@@ -20,7 +20,9 @@ Repository tree
 │   ├── core/
 │   │   └── pitch_contour.py
 │   ├── io/
-│   │   └── loaders.py
+│   │   ├── __init__.py
+│   │   ├── compmusic.py      (CompMusic HMD adapter)
+│   │   └── saraga.py         (Saraga adapter; was loaders.py)
 │   ├── tests/
 │   │   └── test_pitch_contour.py
 │   └── utils/
@@ -49,7 +51,8 @@ Repository tree
 │   ├── run_compmusic_check.py
 │   ├── run_mirdata_check.py
 │   ├── run_segment_baseline_knn.py
-│   └── run_stage1_sanity_check.py
+│   ├── run_stage1_sanity_check.py
+│   └── run_tonic_validation.py
 ├── commentator.ipynb
 ├── run_pipeline_sanity_check.py
 ├── run_segment_lr_rf.py
@@ -67,7 +70,9 @@ Recent restructuring (this is not itself dated -- see docs/experiments/2026-06-r
   - tests/test_segment.py -> tests/run_segment_baseline_knn.py
   - tests/test.py -> tests/run_stage1_sanity_check.py
 - Generated artifacts (feature CSVs, t-SNE plots, classifier reports) now write into outputs/ at the repo root instead of being scattered at the repo root and inside tests/. This is resolved relative to each script's own file location, not the caller's cwd, so it lands in the same outputs/ regardless of where a script is run from.
-- Added tests/run_compmusic_check.py: a smoke test for the larger CompMusic "Indian Art Music Raga Recognition Dataset" (mirdata id compmusic_raga, Hindustani subset = HMD: 300 recordings, 30 ragas, 10 recordings/raga), which is the planned scale-up target beyond the current 108-track Saraga subset. Not yet run.
+- Added tests/run_compmusic_check.py: a smoke test for the larger CompMusic "Indian Art Music Raga Recognition Dataset" (mirdata id compmusic_raga, Hindustani subset = HMD: 300 recordings, 30 ragas, 10 recordings/raga), which is the planned scale-up target beyond the current 108-track Saraga subset. Run successfully on 2026-08-16: all 300 tracks / 30 ragas confirmed, feeding the existing Stage-1 pipeline unchanged.
+- commentator/io/loaders.py was renamed to commentator/io/saraga.py and joined by commentator/io/compmusic.py, one adapter per dataset sharing a common interface (see "Datasets available" below). The module-level Saraga function names are unchanged, so only import lines moved.
+- Added tests/run_tonic_validation.py, which compares Stage-1's estimated tonic against the datasets' annotated tonic at both track and segment level. This is what surfaced the accuracy caveat below.
 
 Plain-English summary of the repo
 ---------------------------------
@@ -84,6 +89,8 @@ What the current docs say
 The baseline log says the current best classifier is Random Forest, because it reached the highest reported accuracy in the June 2026 comparison: 0.9051 segment-level accuracy, versus 0.8035 for logistic regression.
 That result came from the CSV-based comparison flow in tests/classifier_compare.py (reports now written to outputs/classifier_compare/), not from the older KNN baseline.
 
+IMPORTANT CAVEAT (2026-08-16): treat the 0.9051 as provisional. tests/run_tonic_validation.py compared Stage-1's estimated tonic against Saraga's annotated tonic (track.tonic, available all along but never used) across the same 1809 segments that figure was computed on: 50.2% of segments have a pitch-class-wrong tonic, i.e. their swara assignments are made against the wrong Sa. The errors are concentrated per track and correlate with raga, so the classifier may be keying on recording-specific estimator artifacts rather than raga structure. The evaluation protocol itself (LeaveOneGroupOut by track) is sound -- the concern is the input, not the measurement. Re-running with annotated tonics is the current top priority; until then, do not cite 0.9051 as a settled result.
+
 The current entrypoint in use
 ------------------------------
 
@@ -92,7 +99,7 @@ The active script is run_segment_lr_rf.py at the repo root (renamed from test_se
 How the current pipeline works when running run_segment_lr_rf.py
 ------------------------------------------------------------------
 
-1. The script starts in run_segment_lr_rf.py and initializes the Saraga dataset through commentator/io/loaders.py via initialize_saraga(DATA_HOME).
+1. The script starts in run_segment_lr_rf.py and initializes the Saraga dataset through commentator/io/saraga.py via initialize_saraga(DATA_HOME).
 2. For each chosen track, it gets a PitchContour with get_pitch_for_track(...), which wraps the mirdata pitch data in commentator/core/pitch_contour.py.
 3. The segment builder in commentator/analysis/segment_dataset.py infers track duration from pitch_obj.times, then creates 30-second windows with a 20-second hop and a 15-second minimum duration.
 4. Each window is sliced into a smaller PitchContour with slice_pitch_contour(...).
@@ -117,7 +124,7 @@ Files involved in that flow
 ---------------------------
 
 - run_segment_lr_rf.py
-- commentator/io/loaders.py
+- commentator/io/saraga.py
 - commentator/core/pitch_contour.py
 - commentator/analysis/segment_dataset.py
 - commentator/analysis/stage1_schema.py
@@ -129,7 +136,28 @@ Files involved in that flow
 Bottom line
 -----------
 
-If you want the classifier with the highest accuracy in the docs, use Random Forest.
+If you want the classifier with the highest accuracy in the docs, use Random Forest -- but read the tonic caveat above first.
 If you want the current runnable test entrypoint, use run_segment_lr_rf.py.
 If you want the older baseline, that was tests/run_segment_baseline_knn.py (formerly test_segment.py) with KNN.
-If you want to try the larger CompMusic/Dunya scale-up dataset, tests/run_compmusic_check.py is the starting point (not yet run).
+If you want to check how much the Stage-1 tonic estimate can be trusted, run tests/run_tonic_validation.py.
+If you want the larger CompMusic/Dunya scale-up dataset, tests/run_compmusic_check.py works and has been run: 300 Hindustani tracks, 30 ragas, 10 per raga, feeding the existing Stage-1 pipeline unchanged.
+
+Datasets available
+------------------
+
+Two datasets, each with an adapter in commentator/io/ exposing the same interface
+(name / list_tracks() / get_pitch(track_id) / get_tonic(track_id)), so pipeline
+code can be pointed at either without changes:
+
+- SaragaHindustani (commentator/io/saraga.py) -- 108 tracks, but only 6 ragas
+  have >=2 usable tracks; the experiments use a 13-track subset. DATA_HOME is
+  /home/thesidpai/mir_projects/data.
+- CompMusicHindustani (commentator/io/compmusic.py) -- the CompMusic HMD subset:
+  300 recordings, 30 ragas, exactly 10 per raga. Read directly off the extracted
+  tree at data/compmusic_raga/RagaDataset/Hindustani/, because mirdata's
+  compmusic_raga index v1.0 covers only the 477 Carnatic recordings and exposes
+  zero Hindustani tracks. Construct with download=True to fetch the ~3.4 GB
+  features archive (free, no credentials; audio is separate and restricted).
+
+Both datasets ship an annotated tonic, which the Stage-1 pipeline does not
+currently consume -- see the caveat above.
