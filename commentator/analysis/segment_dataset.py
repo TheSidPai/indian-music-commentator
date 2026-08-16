@@ -203,6 +203,7 @@ def build_segment_feature_dataset(
     segment_length_s: float = 60.0,
     hop_s: float = 50.0,
     min_duration_s: float = 15.0,
+    get_tonic_fn: Callable[[str], float | None] | None = None,
 ) -> tuple[np.ndarray, list[str], list[dict]]:
     """
     Build a segment-level feature dataset.
@@ -212,6 +213,13 @@ def build_segment_feature_dataset(
             "track_id": "...",
             "raga_label": "..."
         }
+
+    get_tonic_fn:
+        Optional track_id -> tonic Hz lookup (e.g. a dataset adapter's
+        get_tonic). When given, every segment of that track is analyzed
+        against the supplied tonic instead of estimating one per window.
+        Both Saraga and CompMusic HMD ship annotated tonics; per-segment
+        estimation is unreliable (see tests/run_tonic_validation.py).
 
     Returns:
         X: feature matrix of valid segments
@@ -227,6 +235,7 @@ def build_segment_feature_dataset(
         raga_label = track_info["raga_label"]
 
         pitch_obj = get_pitch_fn(track_id)
+        track_tonic_hz = get_tonic_fn(track_id) if get_tonic_fn is not None else None
 
         duration_s = None
         if hasattr(pitch_obj, "times") and len(pitch_obj.times) > 0:
@@ -250,6 +259,7 @@ def build_segment_feature_dataset(
                     segment_pitch,
                     raga_label=raga_label,
                     include_artifacts=False,
+                    tonic_hz=track_tonic_hz,
                 )
 
                 x, names, meta = extract_raga_features_from_stage1(stage1)
@@ -308,15 +318,20 @@ def build_segment_feature_dataset(
 
     OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
 
+    # An annotated-tonic run has the same raga/feature/window counts as an
+    # estimated-tonic one, so without this tag the two would overwrite each
+    # other's artifacts.
+    tonic_tag = "_annotated-tonic" if get_tonic_fn is not None else ""
+
     df = pd.DataFrame(X)
     df.insert(0, "raga_label", y)
-    df.to_csv(OUTPUTS_DIR / 'key_segment_features_table.csv')
+    df.to_csv(OUTPUTS_DIR / f"key_segment_features_table{tonic_tag}.csv")
 
     n_ragas = len(np.unique(y))
     n_features = X.shape[1]
     tsne_out_path = OUTPUTS_DIR / (
         f"tsne_segments_{n_ragas}raga_{n_features}feat_"
-        f"{int(segment_length_s)}s-{int(hop_s)}shop.png"
+        f"{int(segment_length_s)}s-{int(hop_s)}shop{tonic_tag}.png"
     )
 
     plot_tsne_segments(

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 from collections import Counter, defaultdict
 
 import numpy as np
@@ -11,7 +12,11 @@ from sklearn.model_selection import LeaveOneGroupOut
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
-from commentator.io.saraga import initialize_saraga, get_pitch_for_track
+from commentator.io.saraga import (
+    initialize_saraga,
+    get_pitch_for_track,
+    get_tonic_for_track,
+)
 from commentator.analysis.segment_dataset import build_segment_feature_dataset
 
 DATA_HOME = "/home/thesidpai/mir_projects/data"  # change if needed
@@ -159,18 +164,34 @@ def evaluate_model(model_name, clf, X, y, groups, valid_records):
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--annotated-tonic",
+        action="store_true",
+        help="use Saraga's annotated tonic instead of estimating one per segment "
+             "(see tests/run_tonic_validation.py for why this matters)",
+    )
+    args = parser.parse_args()
+
     saraga = initialize_saraga(DATA_HOME)
 
     def pitch_fn(track_id: str):
         return get_pitch_for_track(track_id, saraga)
 
-    print("=== Building segment dataset ===")
+    tonic_fn = None
+    if args.annotated_tonic:
+        def tonic_fn(track_id: str):  # noqa: F811
+            return get_tonic_for_track(track_id, saraga)
+
+    mode = "ANNOTATED tonic" if args.annotated_tonic else "ESTIMATED tonic"
+    print(f"=== Building segment dataset ({mode}) ===")
     X, feature_names, records = build_segment_feature_dataset(
         tracks=TRACKS,
         get_pitch_fn=pitch_fn,
         segment_length_s=30.0,
         hop_s=20.0,
         min_duration_s=15.0,
+        get_tonic_fn=tonic_fn,
     )
 
     failed_records = [r for r in records if r["failed"]]

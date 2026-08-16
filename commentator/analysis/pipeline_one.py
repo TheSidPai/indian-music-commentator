@@ -7,9 +7,11 @@ assigns swaras, summarizes usage, and generates a short comment.
 
 from __future__ import annotations
 
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
-from .tonic_estimator import estimate_tonic, normalize_to_tonic
+import numpy as np
+
+from .tonic_estimator import estimate_tonic, normalize_to_tonic, hz_to_cents
 from .swara_analyzer import (
     assign_swaras_to_contour,
     summarize_swara_distribution,
@@ -28,6 +30,7 @@ def analyze_pitch_musically(
     candidate_min_hz: float = 80.0,
     candidate_max_hz: float = 400.0,
     swara_tolerance_cents: float = 35.0,
+    tonic_hz: Optional[float] = None,
 ) -> Dict[str, Any]:
     """
     Run the full tonic + swara analysis pipeline on a PitchContour.
@@ -54,6 +57,15 @@ def analyze_pitch_musically(
         Allowed tonic octave range in Hz.
     swara_tolerance_cents
         Tolerance for assigning contour points to nearest swara.
+    tonic_hz
+        Optional known tonic in Hz (e.g. a dataset's annotated tonic). When
+        given, it replaces the estimated tonic for normalization and swara
+        assignment; the histogram is still computed, so histogram-derived
+        features are unaffected, and the value that *would* have been
+        estimated is preserved under `tonic_result["estimated_tonic_hz"]`
+        for comparison. See tests/run_tonic_validation.py for why this
+        matters: on the 6-raga Saraga set, 50.2% of 30s segments estimate a
+        pitch-class-wrong tonic.
 
     Returns
     -------
@@ -80,6 +92,20 @@ def analyze_pitch_musically(
         candidate_min_hz=candidate_min_hz,
         candidate_max_hz=candidate_max_hz,
     )
+
+    # 1b. Optionally override the estimate with a known tonic. The histogram
+    # in tonic_result is left untouched (it is tonic-independent), so only
+    # normalization and swara assignment change.
+    if tonic_hz is not None:
+        tonic_result = {
+            **tonic_result,
+            "tonic_hz": float(tonic_hz),
+            "tonic_pc_cents": float(
+                hz_to_cents(np.array([tonic_hz], dtype=float), ref_hz=ref_hz)[0] % 1200.0
+            ),
+            "estimated_tonic_hz": tonic_result.get("tonic_hz"),
+            "method": "annotated_tonic",
+        }
 
     # 2. Tonic-normalized contour
     normalized_result = normalize_to_tonic(

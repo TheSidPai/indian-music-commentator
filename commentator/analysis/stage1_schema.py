@@ -61,8 +61,14 @@ def build_stage1_schema(
     pitch_obj,
     raga_label: Optional[str] = None,
     include_artifacts: bool = False,
+    tonic_hz: Optional[float] = None,
 ) -> Dict[str, Any]:
-    pipeline_result = analyze_pitch_musically(pitch_obj)
+    """Build the Stage-1 schema for a contour.
+
+    `tonic_hz` optionally supplies a known tonic (e.g. a dataset annotation)
+    instead of estimating one -- see analyze_pitch_musically.
+    """
+    pipeline_result = analyze_pitch_musically(pitch_obj, tonic_hz=tonic_hz)
 
     tonic_result = pipeline_result["tonic_result"]
     normalized_result = pipeline_result["normalized_result"]
