@@ -89,7 +89,46 @@ What the current docs say
 The baseline log says the current best classifier is Random Forest, because it reached the highest reported accuracy in the June 2026 comparison: 0.9051 segment-level accuracy, versus 0.8035 for logistic regression.
 That result came from the CSV-based comparison flow in tests/classifier_compare.py (reports now written to outputs/classifier_compare/), not from the older KNN baseline.
 
-IMPORTANT CAVEAT (2026-08-16): treat the 0.9051 as provisional. tests/run_tonic_validation.py compared Stage-1's estimated tonic against Saraga's annotated tonic (track.tonic, available all along but never used) across the same 1809 segments that figure was computed on: 50.2% of segments have a pitch-class-wrong tonic, i.e. their swara assignments are made against the wrong Sa. The errors are concentrated per track and correlate with raga, so the classifier may be keying on recording-specific estimator artifacts rather than raga structure. The evaluation protocol itself (LeaveOneGroupOut by track) is sound -- the concern is the input, not the measurement. Re-running with annotated tonics is the current top priority; until then, do not cite 0.9051 as a settled result.
+DO NOT CITE 0.9051 (established 2026-08-16). That number comes from a leaky
+evaluation and is not comparable to the grouped results elsewhere in the docs.
+
+Cause: build_segment_feature_dataset wrote key_segment_features_table.csv as
+raga_label plus bare numeric feature columns, with no track_id column. So
+tests/classifier_compare.py's detect_group_column() found nothing and silently
+fell back to train_test_split(..., stratify=y) -- a random split over segments.
+Because segments are 30s windows at a 20s hop, consecutive segments overlap by
+10s, so near-duplicate windows from the same recording landed in both train and
+test: measured, 94.9% of test segments had an overlapping neighbour in train,
+and all 13 tracks appeared on both sides. The script was honest about it (its
+report printed "Group-aware split used: no; stratified segment split"); the
+group column simply never reached the CSV.
+
+FIXED (2026-08-16): the CSV now exports track_id, so detect_group_column() finds
+it and GroupShuffleSplit engages. Re-running the identical flow with estimated
+tonics gives LR 0.2402 and RF 0.2677, versus the leaky 0.8035 and 0.9051 -- i.e.
+the leak accounted for essentially the whole figure. Note these sit below the
+LeaveOneGroupOut numbers below because GroupShuffleSplit holds out ~4 whole
+recordings at once and trains on ~9, without averaging over folds;
+run_segment_lr_rf.py's numbers are the ones to quote.
+
+The correct grouped numbers, from run_segment_lr_rf.py with LeaveOneGroupOut
+over the same 1809 segments / 71 features (matching the ~61.5% ceiling recorded
+in the 2026-06-22 and 06-23 log entries):
+
+                        estimated tonic      annotated tonic
+    LR  track-level         0.615                0.615
+    LR  segment-level       0.375                0.520
+    RF  track-level         0.615                0.538
+    RF  segment-level       0.384                0.441
+
+A separate, real issue (do not conflate it with the leakage above): Stage-1
+estimates the tonic per 30s window, and tests/run_tonic_validation.py shows
+50.2% of those segments get a pitch-class-wrong tonic, i.e. their swaras are
+assigned against the wrong Sa. Both datasets ship an annotated tonic that the
+pipeline ignored until now; run_segment_lr_rf.py --annotated-tonic uses it.
+Doing so raises segment accuracy for both classifiers, and notably flips the
+ranking: LR (0.520) overtakes RF (0.441), consistent with RF's earlier edge
+coming partly from fitting track-specific estimator artifacts.
 
 The current entrypoint in use
 ------------------------------
@@ -136,7 +175,7 @@ Files involved in that flow
 Bottom line
 -----------
 
-If you want the classifier with the highest accuracy in the docs, use Random Forest -- but read the tonic caveat above first.
+If you want the best honest (grouped) result so far, it is Logistic Regression with --annotated-tonic: 0.520 segment-level, 0.615 track-level. Random Forest only looks better under the leaky split -- see the caveat above.
 If you want the current runnable test entrypoint, use run_segment_lr_rf.py.
 If you want the older baseline, that was tests/run_segment_baseline_knn.py (formerly test_segment.py) with KNN.
 If you want to check how much the Stage-1 tonic estimate can be trusted, run tests/run_tonic_validation.py.

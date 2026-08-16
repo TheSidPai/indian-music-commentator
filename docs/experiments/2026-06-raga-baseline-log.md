@@ -904,8 +904,95 @@ Driven by a concrete problem: the HMD loading code was living in
 - Deliberately **not** added: a `Protocol` base class, a `get_dataset(name)` factory, or a `loaders.py` compatibility shim — all speculative abstraction at two datasets and five call sites. Existing module-level function names are unchanged, so only import lines moved (7 files).
 - `tests/run_compmusic_check.py` dropped from ~200 to ~85 lines. Verified: all touched files compile, `pytest` still collects exactly 1 real test, the smoke test still passes, and a single dataset-agnostic function runs against both adapters.
 
-### Next steps
+### 5. Re-running with annotated tonics — and finding the 0.9051 was leaky
 
-- **Re-run the segment/classifier comparison using annotated tonics instead of estimated ones**, on the existing 13-track Saraga set, to measure what the 0.9051 becomes when Stage-1 is fed a correct tonic. This is the immediate priority — it determines whether the current baseline reflects raga structure or estimator artifacts.
-- Investigate the tonic estimator itself (octave/fifth resolution in `resolve_tonic_octave`), and consider accepting an optional externally-supplied tonic in `build_stage1_schema(...)` so annotated tonics can be used when available.
-- Then scale the comparison to HMD (30 ragas × 10 recordings) using annotated tonics throughout.
+Added an optional tonic override: `tonic_hz` on `analyze_pitch_musically` /
+`build_stage1_schema`, and `get_tonic_fn` on `build_segment_feature_dataset`,
+exposed as `run_segment_lr_rf.py --annotated-tonic`. The histogram is still
+computed and only the tonic is replaced, so histogram-derived features are
+unchanged and the comparison isolates the tonic variable; the value that would
+have been estimated is kept as `tonic_result["estimated_tonic_hz"]`. Output
+filenames gain an `_annotated-tonic` tag, since both runs otherwise produce
+identical raga/feature/window counts and would overwrite each other.
+
+**First finding: 0.9051 was never a grouped result.** Re-running the baseline
+with estimated tonics reproduces the ~61.5% track-level ceiling from the
+06-22/06-23 entries — RF segment-level is **0.384, not 0.9051**. The two numbers
+come from different protocols. `build_segment_feature_dataset` writes
+`key_segment_features_table.csv` as `raga_label` plus bare numeric columns with
+**no `track_id`**, so `classifier_compare.py`'s `detect_group_column()` returns
+`None` and falls back to `train_test_split(..., stratify=y)` — a random split
+over segments. Segments are 30s windows at 20s hop, so consecutive segments
+overlap by 10s and near-duplicate windows land in both train and test. The
+script reports this honestly ("Group-aware split used: no; stratified segment
+split"); the group column simply never reached the CSV. **0.9051 and 0.8035
+should not be cited.**
+
+Quantified on the actual data (standardised feature space):
+
+| segment pair | mean distance |
+|---|---|
+| adjacent segments, same track (10s overlap) | **7.25** |
+| distant segments, same track | 10.76 |
+| same raga, **different track** — the real task | **11.19** |
+
+Under the random split, **94.9% of test segments have an overlapping neighbour
+in the training set**, and **all 13 tracks appear on both sides**. So 0.9051 was
+measuring the 7.25 problem while the question of interest is the 11.19 one.
+
+**Fix applied**: `build_segment_feature_dataset` now exports `track_id` in
+`key_segment_features_table.csv` (as a string, so consumers selecting numeric
+columns as features cannot pick it up as an input; `segment_index` is
+deliberately *not* exported, since it is numeric and would be swept up as a
+meaningless positional feature). `detect_group_column()` now finds it and
+`GroupShuffleSplit` engages — the report line changes from "no; stratified
+segment split" to "yes (track_id)". Re-running the identical flow, estimated
+tonic:
+
+| `classifier_compare.py` | before (leaky) | after (grouped) |
+|---|---|---|
+| Logistic Regression | 0.8035 | **0.2402** |
+| Random Forest | 0.9051 | **0.2677** |
+
+The leak accounted for essentially the entire figure. These land *below* the
+`LeaveOneGroupOut` numbers (0.375/0.384) because this is a harsher protocol: a
+single `GroupShuffleSplit` holds out ~4 whole recordings at once and trains on
+the remaining ~9, whereas leave-one-track-out trains on 12 and averages over 13
+folds. `run_segment_lr_rf.py`'s numbers remain the ones to quote.
+
+Running the same grouped flow on the annotated-tonic CSV gives LR **0.2500**
+and RF **0.2717**, versus 0.2402 / 0.2677 estimated — i.e. under *this*
+protocol the tonic fix is worth ~1 point and is **within noise**, unlike the
++0.145 it is worth under `LeaveOneGroupOut`. The two are not in conflict: a
+single `GroupShuffleSplit` on 13 recordings is a high-variance estimate (one
+draw, ~9 training tracks, so some ragas contribute only a single track), while
+the leave-one-track-out figure averages 13 folds over all 1809 segments. The
+`LeaveOneGroupOut` result is the more reliable of the two, but this is a useful
+reminder that the tonic improvement has been demonstrated under one protocol,
+not two.
+
+> **Correction to section 3 of this same entry:** the caveat written earlier
+> today attributed the unreliability of 0.9051 primarily to the tonic problem.
+> That is wrong about the main cause — the dominant factor is the non-grouped
+> split described above. The tonic issue is real and independent, but it is not
+> what inflated 0.9051 to 0.90.
+
+**Second finding: annotated tonics genuinely help.** Same 1809 segments, 71
+features, `LeaveOneGroupOut`:
+
+| | estimated tonic | annotated tonic | delta |
+|---|---|---|---|
+| LR track-level | 0.615 | 0.615 | — |
+| LR segment-level | 0.375 | **0.520** | +0.145 |
+| RF track-level | 0.615 | 0.538 | −0.077 |
+| RF segment-level | 0.384 | **0.441** | +0.057 |
+
+- Segment-level improves for both classifiers — the clearer signal, at n=1809.
+- Track-level moves are one track either way (13 tracks = 7.7% each: 8/13 vs 7/13) and should not be read as meaningful.
+- **The LR/RF ranking flips.** RF led under both the leaky split (0.9051 vs 0.8035) and the grouped estimated-tonic run (0.384 vs 0.375); with correct tonics LR leads clearly (0.520 vs 0.441). Consistent with RF's earlier advantage coming partly from carving out track-specific estimator artifacts that a linear model could not exploit — exactly the failure mode predicted in section 3.
+- Absolute accuracy remains low, as expected: 6 ragas at 2–3 tracks each. Fixing the tonic removes a confound; it does not solve sample scarcity. That is what HMD is for.
+
+### Next steps
+- **Write `track_id` into `key_segment_features_table.csv`** so `classifier_compare.py` can actually group by track, closing the leak at its source rather than relying on people knowing not to trust that flow.
+- Investigate the tonic estimator itself (octave/fifth resolution in `resolve_tonic_octave`); the override added here is a workaround that only helps where an annotation exists.
+- **Scale to HMD (30 ragas × 10 recordings) with annotated tonics throughout.** With the tonic confound removed and the leaky number retired, sample scarcity is now the clear remaining bottleneck, and HMD addresses exactly that.
