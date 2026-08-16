@@ -1,7 +1,7 @@
 from commentator.analysis.stage1_schema import build_stage1_schema
 from commentator.analysis.raga_features import extract_raga_features_from_stage1
 from commentator.analysis.raga_baseline_knn import evaluate_knn_leave_one_track_out
-from commentator.io.loaders import initialize_saraga, get_pitch_for_track
+from commentator.io.saraga import initialize_saraga, get_pitch_for_track
 
 
 DATA_HOME = "/home/thesidpai/mir_projects/data"

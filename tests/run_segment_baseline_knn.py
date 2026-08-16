@@ -8,7 +8,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
-from commentator.io.loaders import initialize_saraga, get_pitch_for_track
+from commentator.io.saraga import initialize_saraga, get_pitch_for_track
 from commentator.analysis.segment_dataset import build_segment_feature_dataset
 
 

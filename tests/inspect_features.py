@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from commentator.io.loaders import initialize_saraga, get_pitch_for_track
+from commentator.io.saraga import initialize_saraga, get_pitch_for_track
 from commentator.analysis.stage1_schema import build_stage1_schema
 from commentator.analysis.raga_features import extract_raga_features_from_stage1
 

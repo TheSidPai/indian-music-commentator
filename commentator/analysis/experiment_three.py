@@ -10,7 +10,7 @@ import mirdata
 from commentator.core.pitch_contour import PitchContour
 from commentator.analysis.stage1_schema import build_stage1_schema
 from commentator.analysis.swara_analyzer import generate_basic_swara_comment
-from commentator.io.loaders import load_track
+from commentator.io.saraga import load_track
 
 # Automatically discover the root .env file from the current module context
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent

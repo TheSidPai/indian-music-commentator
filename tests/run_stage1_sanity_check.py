@@ -1,4 +1,4 @@
-from commentator.io.loaders import initialize_saraga, get_pitch_for_track
+from commentator.io.saraga import initialize_saraga, get_pitch_for_track
 from commentator.analysis.stage1_schema import build_stage1_schema
 
 saraga = initialize_saraga("/home/thesidpai/mir_projects/data")
