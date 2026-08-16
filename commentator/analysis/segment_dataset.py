@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Callable, Any, Protocol
 
 import numpy as np
@@ -9,6 +10,11 @@ import pandas as pd
 
 from .stage1_schema import build_stage1_schema
 from .raga_features import extract_raga_features_from_stage1
+
+# Resolved relative to this file (not the caller's cwd), so generated
+# artifacts always land in <repo root>/outputs/ regardless of where a
+# script that imports this module is run from.
+OUTPUTS_DIR = Path(__file__).resolve().parent.parent.parent / "outputs"
 
 class PitchContourLike(Protocol):
     times: Any
@@ -37,7 +43,9 @@ def plot_tsne_segments(
     if out_path is None:
         n_ragas = len(np.unique(labels))
         n_features = X.shape[1]
-        out_path = f"tsne_segments_{n_ragas}raga_{n_features}feat.png"
+        out_path = OUTPUTS_DIR / f"tsne_segments_{n_ragas}raga_{n_features}feat.png"
+
+    Path(out_path).parent.mkdir(parents=True, exist_ok=True)
 
     if segment_indices is None:
         segment_indices = np.arange(len(labels))
@@ -298,14 +306,15 @@ def build_segment_feature_dataset(
     track_ids = np.array([r["track_id"] for r in valid_records])
     segment_indices = np.array([r["segment_index"] for r in valid_records])
 
-    
+    OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
+
     df = pd.DataFrame(X)
     df.insert(0, "raga_label", y)
-    df.to_csv('key_segment_features_table.csv')
+    df.to_csv(OUTPUTS_DIR / 'key_segment_features_table.csv')
 
     n_ragas = len(np.unique(y))
     n_features = X.shape[1]
-    tsne_out_path = (
+    tsne_out_path = OUTPUTS_DIR / (
         f"tsne_segments_{n_ragas}raga_{n_features}feat_"
         f"{int(segment_length_s)}s-{int(hop_s)}shop.png"
     )

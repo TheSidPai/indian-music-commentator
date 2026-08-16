@@ -12,6 +12,10 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 from sklearn.model_selection import GroupShuffleSplit, train_test_split
 
+# Resolved relative to this file (not the caller's cwd), so defaults land in
+# <repo root>/outputs/ regardless of where this script is run from.
+OUTPUTS_DIR = Path(__file__).resolve().parent.parent / "outputs"
+
 FEATURE_MAP = {
     '0': 'tonic_hz',
     '1': 'log_tonic_hz',
@@ -222,8 +226,8 @@ def write_rf_report(path, model, X_train, X_test, y_train, y_test, class_names, 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--csv', default='key_segment_features_table.csv')
-    parser.add_argument('--outdir', default='output')
+    parser.add_argument('--csv', default=str(OUTPUTS_DIR / 'key_segment_features_table.csv'))
+    parser.add_argument('--outdir', default=str(OUTPUTS_DIR / 'classifier_compare'))
     parser.add_argument('--test-size', type=float, default=0.25)
     parser.add_argument('--random-state', type=int, default=42)
     parser.add_argument('--rf-estimators', type=int, default=300)

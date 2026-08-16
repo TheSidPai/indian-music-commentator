@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
@@ -11,11 +13,19 @@ from sklearn.manifold import TSNE
 import matplotlib.pyplot as plt
 import numpy as np
 
+# Resolved relative to this file (not the caller's cwd), so generated
+# artifacts always land in <repo root>/outputs/ regardless of where this
+# script is run from.
+OUTPUTS_DIR = Path(__file__).resolve().parent.parent / "outputs"
+
+
 def plot_tsne(X, labels, track_ids, out_path=None):
     if out_path is None:
         n_ragas = len(np.unique(labels))
         n_features = X.shape[1]
-        out_path = f"tsne_plot_{n_ragas}raga_{n_features}feat.png"
+        out_path = OUTPUTS_DIR / f"tsne_plot_{n_ragas}raga_{n_features}feat.png"
+
+    Path(out_path).parent.mkdir(parents=True, exist_ok=True)
 
     tsne = TSNE(n_components=2, init="random", random_state=0, perplexity=3)
     X_emb = tsne.fit_transform(X)
@@ -206,7 +216,8 @@ def main():
         index=track_ids,
     )
     df.insert(0, "raga_label", y)
-    df.to_csv('key_features_table.csv')
+    OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
+    df.to_csv(OUTPUTS_DIR / 'key_features_table.csv')
     print("=== Key feature snapshot per track ===")
     print(df)
 

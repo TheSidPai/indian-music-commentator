@@ -122,7 +122,9 @@ def main():
         print("Error: google-genai package is missing.")
         return
 
-    output_csv = Path("experiment_three_hybrid_results.csv")
+    outputs_dir = ROOT_DIR / "outputs"
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+    output_csv = outputs_dir / "experiment_three_hybrid_results.csv"
     target_role = "advanced learner"
     model_name = "gemini-2.5-flash"
     
