@@ -996,3 +996,172 @@ features, `LeaveOneGroupOut`:
 - **Write `track_id` into `key_segment_features_table.csv`** so `classifier_compare.py` can actually group by track, closing the leak at its source rather than relying on people knowing not to trust that flow.
 - Investigate the tonic estimator itself (octave/fifth resolution in `resolve_tonic_octave`); the override added here is a workaround that only helps where an annotation exists.
 - **Scale to HMD (30 ragas × 10 recordings) with annotated tonics throughout.** With the tonic confound removed and the leaky number retired, sample scarcity is now the clear remaining bottleneck, and HMD addresses exactly that.
+
+---
+
+## 2026-08-17 – HMD pilot runs: sample scarcity confirmed as the bottleneck
+
+Two pilots before committing to the full 300-track run. Both use the existing
+Stage-1/Stage-2 pipeline unchanged; the only additions were dataset selection
+and subsetting flags on `run_segment_lr_rf.py`, a `run_tag` discriminator on
+generated filenames, and a `.tonicFine` preference in the HMD adapter.
+
+### Method
+
+| | Pilot 1 | Pilot 2 |
+|---|---|---|
+| Purpose | plumbing, timing, failure rate | controlled scale-up test |
+| Tracks | 30 (1 per raga) | 50 (10 per raga) |
+| Ragas | all 30 | 5: Bihāg, Kēdār, Bhūp, Ābhōgī, Śrī |
+| Tonic | estimated | estimated **and** annotated |
+| Evaluation | none (see below) | `StratifiedGroupKFold(10)`, grouped by `track_id` |
+| Segments | 2,077 | 3,631 |
+
+Pilot 2's five ragas are deliberately five of the six in the Saraga experiment
+set (`Bhoopali` = `Bhūp`, `Shree` = `Śrī`; `Lalit` dropped as the least
+comparable, being the only Saraga raga with three recordings). This makes it a
+controlled comparison rather than a fresh benchmark: same ragas, same features,
+same 30s/20s window, same pipeline — the variable is **10 recordings per raga
+instead of 2–3**.
+
+Pilot 1 runs no classifier by design: with one recording per raga, a
+group-aware split cannot both train and test on a class. It also means Pilot
+1's t-SNE cannot distinguish raga identity from recording identity — the two
+are perfectly confounded — so that plot shows only that extraction works.
+
+`StratifiedGroupKFold(10)` was chosen over `LeaveOneGroupOut` for HMD: with
+exactly 10 recordings per raga it holds out precisely one recording of each
+raga per fold, and costs 10 model fits instead of 50–300.
+
+### Pilot 1 results — extraction is clean and cheap
+
+| metric | value |
+|---|---|
+| Valid segments | 2,077 |
+| Failed segments | **0 (0.00%)** |
+| Feature dimension | 71 (identical to Saraga) |
+| Build time | 95.5 s |
+| Per segment / per track | 0.046 s / 3.18 s |
+| **Projected full 300-track build** | **~16 min** |
+
+Zero failures across 30 previously unseen recordings, and an identical feature
+vector shape, confirm the adapter and Stage-1 need no HMD-specific handling.
+The earlier estimate of ~1 hour per configuration was pessimistic by ~4x, which
+makes running the full set in both tonic modes cheap.
+
+One structural difference from Saraga: HMD segment counts per track are highly
+uneven (min 14, median 67, max 157; durations ~5–52 min). Segment-level
+accuracy is therefore dominated by the longest recordings, while track-level
+accuracy weights recordings equally.
+
+### Pilot 2 results — large gains, and the tonic effect confirmed at scale
+
+`StratifiedGroupKFold(10)`, 50 tracks, 3,631 segments, chance = 0.2000:
+
+| tonic | model | track acc | segment acc | segment × chance |
+|---|---|---|---|---|
+| estimated | Logistic Regression | 0.9400 | 0.6673 | 3.3× |
+| estimated | Random Forest | 1.0000 | 0.8160 | 4.1× |
+| **annotated** | **Logistic Regression** | **1.0000** | **0.9391** | **4.7×** |
+| **annotated** | Random Forest | 1.0000 | 0.9303 | 4.7× |
+
+**The annotated tonic is worth far more here than it was on Saraga**: +0.272
+segment accuracy for LR (0.6673 → 0.9391) and +0.114 for RF, on 50 recordings
+across 10 folds rather than 13 recordings. The 2026-08-16 entry noted the tonic
+gain was demonstrated under only one protocol and was within noise under a
+single `GroupShuffleSplit`; this is the independent confirmation that was
+missing.
+
+The LR/RF ranking behaves exactly as predicted on 2026-08-16. With estimated
+tonics RF leads substantially (0.8160 vs 0.6673) — consistent with RF
+exploiting non-linear, recording-specific estimator artifacts. With correct
+tonics the gap closes and reverses slightly (0.9391 vs 0.9303): once swara
+proportions mean the same thing across recordings, the linear model suffices.
+
+Segment-level confusion (RF, annotated) is musically sensible — residual error
+concentrates between **Kēdār and Bihāg**, both Kalyan-family ragas using both
+Ma variants, while Śrī (komal re) is nearly perfectly separated at 0.98.
+
+### Comparison with Saraga — and why it is not apples-to-apples
+
+| | Saraga (6 raga, 13 tracks, LOGO) | HMD Pilot 2 (5 raga, 50 tracks, SGKF-10) |
+|---|---|---|
+| best segment acc (annotated) | 0.520 | **0.9391** |
+| × chance | 3.1× | **4.7×** |
+| track acc | 0.615 | **1.0000** |
+
+Differences that make this indicative rather than conclusive: 5 classes vs 6
+(chance 0.200 vs 0.167 — hence the ×chance column), `StratifiedGroupKFold(10)`
+vs `LeaveOneGroupOut`, and entirely different recordings. Even normalised for
+chance the improvement is large, and track-level accuracy going from 8/13 to
+50/50 is not explicable by the protocol change alone. **Sample scarcity was
+indeed the binding constraint**, as Ajay suggested.
+
+### Caveat: the album/session effect probably inflates Pilot 2
+
+100% track accuracy warrants the same scepticism applied to 0.9051, so the
+recordings were checked for shared provenance. **21 of the 50 tracks (42%)
+share an artist *and* album with another recording of the same raga:**
+
+| raga | independent (artist+album) sessions | recordings |
+|---|---|---|
+| Bihāg | **5** | 10 |
+| Kēdār | 6 | 10 |
+| Bhūp | 8 | 10 |
+| Śrī | 8 | 10 |
+| Ābhōgī | 9 | 10 |
+
+Half of Bihāg's recordings come from one album (`Abdul_Rashid_Khan – Rasan_Piya
+Volume 1`), and half of Kēdār's from `Volume 3` by the same artist. Grouping by
+`track_id` correctly prevents *segment* leakage, but it does not prevent the
+model from recognising a **recording session** — same artist, tanpura, tonic and
+room — shared between train and test. This is the well-known album effect, and
+it is the same class of confound as the 2026-08-16 leak, one level up.
+
+The control is to group by `(artist, album)` instead of `track_id`, which
+`run_segment_lr_rf.py --group-by album` now supports. The 50 recordings resolve
+to **33 independent sessions**, and Bihāg's 5 cap the split at
+`StratifiedGroupKFold(5)`.
+
+### Album-grouped control — the result largely survives
+
+Same 50 recordings, same features, same 3,631 segments; only the CV grouping
+unit changes.
+
+| tonic | model | grouped by track | grouped by album | Δ segment |
+|---|---|---|---|---|
+| estimated | LR | 0.6673 | 0.6502 | −0.017 |
+| estimated | RF | 0.8160 | 0.7981 | −0.018 |
+| **annotated** | **LR** | 0.9391 | **0.9193** | **−0.020** |
+| annotated | RF | 0.9303 | 0.8882 | −0.042 |
+
+Track-level under album grouping: LR 0.9600, RF 0.9200 (annotated); LR 0.8600,
+RF 0.9600 (estimated).
+
+**The album effect is real but small** — 2–4 points of segment accuracy, not
+the collapse that would indicate the model was mostly recognising recording
+sessions. And part of even that is not the album effect at all: album grouping
+forces 5 folds instead of 10, so each model trains on ~40 rather than 45
+recordings. The drop is therefore an upper bound on the confound.
+
+Two further observations:
+
+- **LR's lead over RF widens under the strictest grouping** (0.9193 vs 0.8882, against 0.9391 vs 0.9303 when grouped by track). Consistent with the pattern seen throughout: RF extracts more from recording-specific idiosyncrasy, so tightening the protocol costs it more. Every time the evaluation has been made stricter, RF has lost more than LR.
+- The tonic effect is undiminished by album grouping: +0.269 segment accuracy for LR (0.6502 → 0.9193). It is not an artifact of the grouping choice.
+
+**Headline for the 5-raga pilot, under the strictest protocol run so far:
+segment 0.9193, track 0.9600, 4.6× chance** (LR, annotated tonic, album-grouped,
+`StratifiedGroupKFold(5)`). This is the number to quote.
+
+### Artifacts
+
+All tagged so nothing overwrites prior runs:
+`outputs/key_segment_features_table_hmd-pilot{1,2}-*.csv`,
+`outputs/tsne_segments_hmd-pilot{1,2}-*.png` (with `_annotated-tonic` variants).
+
+### Next steps
+
+- **Full 300-track / 30-raga run**, annotated tonic, album-grouped, in both tonic modes for comparison (~16 min extraction each). 30 classes at chance 0.033 is a much harder problem than these 5; expect substantially lower absolute accuracy and judge it against chance.
+- Check session structure across all 300 recordings before that run — if some of the 30 ragas have very few independent sessions, album grouping may cap the fold count awkwardly low.
+- Point `run_tonic_validation.py` at HMD for all 300 tracks; only 20 were spot-checked, and the estimator error rate on HMD is still not properly characterised.
+- The tonic estimator itself remains unfixed (octave/fifth resolution in `resolve_tonic_octave`). Annotated tonics are a workaround that will not transfer to data lacking annotations.

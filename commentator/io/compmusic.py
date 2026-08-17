@@ -118,6 +118,7 @@ class CompMusicHindustani:
                         "artist": pitch_path.parts[-3],
                         "pitch_path": pitch_path,
                         "tonic_path": pitch_path.with_suffix(".tonic"),
+                        "tonic_fine_path": pitch_path.with_suffix(".tonicFine"),
                     }
                 )
         return records
@@ -158,7 +159,21 @@ class CompMusicHindustani:
         )
 
     def get_tonic(self, track_id: str) -> float | None:
-        """Return the dataset's annotated tonic in Hz, or None if absent."""
+        """Return the dataset's annotated tonic in Hz, or None if absent.
+
+        Prefers `.tonicFine` (the manually fine-tuned annotation) over
+        `.tonic`, falling back if it is missing. The two typically differ by
+        a few cents (e.g. 235.93 vs 237.16 Hz, about -9 cents).
+        """
+        record = self._record(track_id)
+        for key in ("tonic_fine_path", "tonic_path"):
+            path = record.get(key)
+            if path is not None and path.exists():
+                return float(path.read_text().strip())
+        return None
+
+    def get_tonic_coarse(self, track_id: str) -> float | None:
+        """Return the unrefined `.tonic` annotation, for comparison."""
         path = self._record(track_id)["tonic_path"]
         if not path.exists():
             return None

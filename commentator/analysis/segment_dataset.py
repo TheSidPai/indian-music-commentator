@@ -30,7 +30,22 @@ def plot_tsne_segments(
     annotate=False,
     max_annotations=80,
     random_state=0,
+    max_points=4000,
 ):
+    """Plot a t-SNE of segment features.
+
+    max_points:
+        t-SNE is O(n log n) at best and the scatter becomes an unreadable
+        blob well before that matters, so larger inputs are randomly
+        subsampled (stratified by track) down to this many points. Saraga's
+        1809-segment runs are unaffected.
+
+    Legend/colour behaviour adapts to the dataset: with few tracks (Saraga)
+    each track gets its own marker and legend entry, which is useful for
+    spotting a single bad recording. With many tracks (HMD's 30 ragas x 10)
+    that legend would be useless, so points are coloured and labelled by
+    raga instead.
+    """
     import numpy as np
     import matplotlib.pyplot as plt
     from sklearn.manifold import TSNE
@@ -39,6 +54,25 @@ def plot_tsne_segments(
     X = np.asarray(X, dtype=float)
     labels = np.asarray(labels)
     track_ids = np.asarray(track_ids)
+
+    if segment_indices is not None:
+        segment_indices = np.asarray(segment_indices)
+
+    if max_points is not None and len(X) > max_points:
+        rng = np.random.default_rng(random_state)
+        # Sample proportionally within each track so no recording drops out.
+        keep = []
+        for tid in np.unique(track_ids):
+            idx = np.flatnonzero(track_ids == tid)
+            n_keep = max(1, int(round(len(idx) * max_points / len(X))))
+            keep.append(rng.choice(idx, size=min(n_keep, len(idx)), replace=False))
+        keep = np.sort(np.concatenate(keep))
+        print(f"t-SNE: subsampling {len(X)} -> {len(keep)} points for plotting")
+        X = X[keep]
+        labels = labels[keep]
+        track_ids = track_ids[keep]
+        if segment_indices is not None:
+            segment_indices = segment_indices[keep]
 
     if out_path is None:
         n_ragas = len(np.unique(labels))
@@ -80,6 +114,15 @@ def plot_tsne_segments(
         "Raag_Lalit": "tab:brown",
     }
 
+    # Any raga not in the hand-picked Saraga palette (i.e. every HMD raga)
+    # gets a deterministic colour from a colormap, so plots are not all grey.
+    unique_labels = sorted({str(v) for v in labels})
+    unassigned = [lbl for lbl in unique_labels if lbl not in colors]
+    if unassigned:
+        cmap = plt.get_cmap("hsv", len(unassigned) + 1)
+        for i, lbl in enumerate(unassigned):
+            colors[lbl] = cmap(i)
+
     markers = {
         "27_Raag_Bihag": "o",
         "81_Raag_Bihag": "s",
@@ -104,19 +147,37 @@ def plot_tsne_segments(
     plt.figure(figsize=(9, 7))
 
     unique_tracks = np.unique(track_ids)
-    for tid in unique_tracks:
-        mask = track_ids == tid
-        raga = labels[mask][0]
-        plt.scatter(
-            X_emb[mask, 0],
-            X_emb[mask, 1],
-            c=colors.get(str(raga), "gray"),
-            marker=markers.get(str(tid), "o"),
-            s=28,
-            alpha=0.75,
-            edgecolors="none",
-            label=str(tid),
-        )
+    # One legend entry per track is informative for Saraga's 13 recordings but
+    # useless for HMD's 300, so switch to per-raga grouping past a threshold.
+    legend_by_track = len(unique_tracks) <= 15
+
+    if legend_by_track:
+        for tid in unique_tracks:
+            mask = track_ids == tid
+            raga = labels[mask][0]
+            plt.scatter(
+                X_emb[mask, 0],
+                X_emb[mask, 1],
+                c=[colors.get(str(raga), "gray")],
+                marker=markers.get(str(tid), "o"),
+                s=28,
+                alpha=0.75,
+                edgecolors="none",
+                label=str(tid),
+            )
+    else:
+        for lbl in unique_labels:
+            mask = labels.astype(str) == lbl
+            plt.scatter(
+                X_emb[mask, 0],
+                X_emb[mask, 1],
+                c=[colors.get(lbl, "gray")],
+                marker="o",
+                s=14,
+                alpha=0.65,
+                edgecolors="none",
+                label=lbl,
+            )
 
     if annotate:
         if len(X_emb) <= max_annotations:
@@ -137,10 +198,17 @@ def plot_tsne_segments(
                 alpha=0.8,
             )
 
-    plt.title(f"t-SNE of segment features (perplexity={perplexity})")
+    n_ragas_plotted = len(unique_labels)
+    plt.title(
+        f"t-SNE of segment features "
+        f"({len(X_emb)} segments, {n_ragas_plotted} ragas, perplexity={perplexity})"
+    )
     plt.xlabel("t-SNE 1")
     plt.ylabel("t-SNE 2")
-    plt.legend(fontsize=7, loc="best", ncol=3)
+    if legend_by_track:
+        plt.legend(fontsize=7, loc="best", ncol=3)
+    else:
+        plt.legend(fontsize=6, loc="center left", bbox_to_anchor=(1.01, 0.5), ncol=1)
     plt.tight_layout()
     plt.savefig(out_path, dpi=220, bbox_inches="tight")
     plt.close()
@@ -204,6 +272,7 @@ def build_segment_feature_dataset(
     hop_s: float = 50.0,
     min_duration_s: float = 15.0,
     get_tonic_fn: Callable[[str], float | None] | None = None,
+    run_tag: str = "",
 ) -> tuple[np.ndarray, list[str], list[dict]]:
     """
     Build a segment-level feature dataset.
@@ -220,6 +289,14 @@ def build_segment_feature_dataset(
         against the supplied tonic instead of estimating one per window.
         Both Saraga and CompMusic HMD ship annotated tonics; per-segment
         estimation is unreliable (see tests/run_tonic_validation.py).
+
+    run_tag:
+        Optional discriminator inserted into the generated CSV/PNG filenames
+        (e.g. "_compmusic-hmd_pilot1"). Runs that differ in dataset or track
+        subset can otherwise collide: the filenames encode raga count,
+        feature count and window, none of which distinguish two datasets
+        that happen to share them. Empty by default, so existing Saraga
+        artifact names are unchanged.
 
     Returns:
         X: feature matrix of valid segments
@@ -337,12 +414,12 @@ def build_segment_feature_dataset(
     df = pd.DataFrame(X)
     df.insert(0, "track_id", track_ids)
     df.insert(0, "raga_label", y)
-    df.to_csv(OUTPUTS_DIR / f"key_segment_features_table{tonic_tag}.csv")
+    df.to_csv(OUTPUTS_DIR / f"key_segment_features_table{run_tag}{tonic_tag}.csv")
 
     n_ragas = len(np.unique(y))
     n_features = X.shape[1]
     tsne_out_path = OUTPUTS_DIR / (
-        f"tsne_segments_{n_ragas}raga_{n_features}feat_"
+        f"tsne_segments{run_tag}_{n_ragas}raga_{n_features}feat_"
         f"{int(segment_length_s)}s-{int(hop_s)}shop{tonic_tag}.png"
     )
 
