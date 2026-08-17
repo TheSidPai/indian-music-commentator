@@ -102,6 +102,89 @@ def majority_vote(values: list[str]) -> str:
     return Counter(values).most_common(1)[0][0]
 
 
+def write_results(args, grouping, run, X, n_tracks, n_classes, build_seconds,
+                  tracks_per_raga, segments_per_raga):
+    """Persist one grouping's results as JSON + a readable report.
+
+    Written per grouping scheme so the two evaluations stay distinct on disk:
+    the feature CSV/plot are shared (grouping does not change features), but
+    the results are not.
+    """
+    import json
+    from pathlib import Path
+    from sklearn.metrics import classification_report
+
+    outdir = (Path(__file__).resolve().parent / "outputs" /
+              f"classifier_runs{args.run_tag}")
+    outdir.mkdir(parents=True, exist_ok=True)
+    tonic_tag = "annotated" if args.annotated_tonic else "estimated"
+    stem = f"{args.dataset}_{tonic_tag}-tonic_grouped-by-{grouping}"
+
+    summary = {
+        "dataset": args.dataset,
+        "tonic": tonic_tag,
+        "grouping_unit": grouping,
+        "cv": run["cv"],
+        "n_tracks": n_tracks,
+        "n_ragas": n_classes,
+        "n_segments": int(X.shape[0]),
+        "n_features": int(X.shape[1]),
+        "n_cv_groups": run["n_groups"],
+        "groups_per_raga": run["groups_per_raga"],
+        "tracks_per_raga": dict(sorted(tracks_per_raga.items())),
+        "segments_per_raga": dict(sorted(segments_per_raga.items())),
+        "segment_length_s": args.segment_length,
+        "hop_s": args.hop,
+        "build_seconds": round(build_seconds, 1),
+        "chance": run["results"][0]["chance"],
+        "models": {
+            r["model"]: {
+                "track_accuracy": r["track_accuracy"],
+                "segment_accuracy": r["segment_accuracy"],
+                "segment_x_chance": r["segment_accuracy"] / r["chance"],
+            }
+            for r in run["results"]
+        },
+    }
+    with open(outdir / f"{stem}.json", "w", encoding="utf-8") as f:
+        json.dump(summary, f, indent=2, ensure_ascii=False)
+
+    with open(outdir / f"{stem}.txt", "w", encoding="utf-8") as f:
+        f.write(f"{args.dataset}  |  {tonic_tag} tonic  |  grouped by {grouping}\n")
+        f.write("=" * 72 + "\n\n")
+        f.write(f"CV: {run['cv']}  ({run['n_groups']} groups over {n_tracks} tracks)\n")
+        f.write(f"Ragas: {n_classes} | segments: {X.shape[0]} | features: {X.shape[1]}\n")
+        f.write(f"Window: {args.segment_length}s / {args.hop}s hop\n")
+        f.write(f"Chance: {summary['chance']:.4f}\n\n")
+
+        f.write("Accuracy\n--------\n")
+        for r in run["results"]:
+            f.write(f"  {r['model']:<22} track {r['track_accuracy']:.4f}   "
+                    f"segment {r['segment_accuracy']:.4f}   "
+                    f"({r['segment_accuracy'] / r['chance']:.1f}x chance)\n")
+
+        f.write("\nPer-raga structure (bias check)\n")
+        f.write("-------------------------------\n")
+        f.write(f"{'raga':<22}{'tracks':>7}{'segments':>10}{'cv_groups':>11}\n")
+        for raga in sorted(tracks_per_raga):
+            f.write(f"{raga:<22}{tracks_per_raga[raga]:>7}"
+                    f"{segments_per_raga.get(raga, 0):>10}"
+                    f"{run['groups_per_raga'].get(raga, 0):>11}\n")
+
+        for r in run["results"]:
+            f.write(f"\n\nPer-class report -- {r['model']}\n")
+            f.write("-" * 60 + "\n")
+            f.write(classification_report(r["all_y_true"], r["all_y_pred"],
+                                          digits=4, zero_division=0))
+            wrong = [t for t in r["track_results"] if not t["track_correct"]]
+            f.write(f"\nMisclassified tracks ({len(wrong)}/{len(r['track_results'])}):\n")
+            for t in sorted(wrong, key=lambda t: t["true_label"]):
+                f.write(f"  {t['true_label']:<22} -> {t['track_pred']:<22} "
+                        f"({t['n_segments']} segs)  {t['track_id']}\n")
+
+    print(f"  wrote {outdir / stem}.json / .txt")
+
+
 def print_segment_confusion(y_true, y_pred):
     labels = sorted(set(str(x) for x in y_true) | set(str(x) for x in y_pred))
     counts = {t: defaultdict(int) for t in labels}
@@ -235,7 +318,8 @@ def main() -> None:
                         help="cap recordings per raga (compmusic_hmd only)")
     parser.add_argument("--cv", choices=["logo", "sgkf"], default="logo",
                         help="logo = leave-one-track-out; sgkf = StratifiedGroupKFold")
-    parser.add_argument("--group-by", choices=["track", "album"], default="track",
+    parser.add_argument("--group-by", nargs="+", choices=["track", "album"],
+                        default=["track"],
                         help="CV grouping unit. 'track' prevents segment leakage; "
                              "'album' additionally prevents the album/session effect, "
                              "where the model recognises a shared recording session "
@@ -262,10 +346,10 @@ def main() -> None:
             return get_tonic_for_track(track_id, saraga)
 
         tracks = list(TRACKS)
-        group_key_of = {t["track_id"]: t["track_id"] for t in tracks}
-        if args.group_by == "album":
+        if "album" in args.group_by:
             parser.error("--group-by album is only available for compmusic_hmd "
                          "(Saraga exposes no album metadata)")
+        group_key_of = {"track": {t["track_id"]: t["track_id"] for t in tracks}}
     else:
         from commentator.io.compmusic import CompMusicHindustani
 
@@ -275,17 +359,17 @@ def main() -> None:
         all_hmd = hmd.list_tracks()
         tracks = select_tracks(all_hmd, args.ragas, args.per_raga, args.seed)
 
-        if args.group_by == "album":
-            # A "session" is one artist's one album. Recordings sharing it were
-            # captured together (same tanpura, tonic, room), so holding out a
-            # track while training on its album siblings lets the model
-            # recognise the session rather than the raga.
-            group_key_of = {
+        # A "session" is one artist's one album. Recordings sharing it were
+        # captured together (same tanpura, tonic, room), so holding out a track
+        # while training on its album siblings lets the model recognise the
+        # session rather than the raga.
+        group_key_of = {
+            "track": {t["track_id"]: t["track_id"] for t in all_hmd},
+            "album": {
                 t["track_id"]: f"{t['artist']}||{t['pitch_path'].parts[-2]}"
                 for t in all_hmd
-            }
-        else:
-            group_key_of = {t["track_id"]: t["track_id"] for t in all_hmd}
+            },
+        }
 
     tonic_fn = annotated_tonic_fn if args.annotated_tonic else None
 
@@ -337,7 +421,6 @@ def main() -> None:
         return
 
     y = [r["raga_label"] for r in valid_records]
-    groups = [group_key_of[r["track_id"]] for r in valid_records]
 
     n_tracks_out = len({r["track_id"] for r in valid_records})
     n_classes = len(set(y))
@@ -383,47 +466,88 @@ def main() -> None:
         ]
     )
 
-    # Distinct CV groups per raga caps the usable fold count: a raga with 5
-    # sessions cannot be spread over 10 folds.
-    groups_per_raga = collections.Counter()
-    seen: set[tuple[str, str]] = set()
-    for lbl, grp in zip(y, groups):
-        if (lbl, grp) not in seen:
-            seen.add((lbl, grp))
-            groups_per_raga[lbl] += 1
-    print(f"CV grouping unit: {args.group_by} "
-          f"({len(set(groups))} distinct groups over {n_tracks_out} tracks)")
-    print("Groups per raga:", dict(groups_per_raga))
+    # Features are identical across grouping schemes -- grouping only changes
+    # cross-validation -- so extract once and evaluate under each scheme in
+    # turn, writing a separate result file per scheme.
+    all_runs = {}
+    for grouping in args.group_by:
+        groups = [group_key_of[grouping][r["track_id"]] for r in valid_records]
 
-    if args.cv == "logo":
-        splitter = LeaveOneGroupOut()
-    else:
-        n_splits = min(args.n_splits, min(groups_per_raga.values()))
-        if n_splits < args.n_splits:
-            print(f"  note: reducing n_splits {args.n_splits} -> {n_splits} "
-                  f"(a raga has only {min(groups_per_raga.values())} groups)")
-        splitter = StratifiedGroupKFold(
-            n_splits=n_splits, shuffle=True, random_state=args.seed
-        )
-        print(f"Using StratifiedGroupKFold(n_splits={n_splits})")
+        # Distinct CV groups per raga caps the usable fold count: a raga with 5
+        # sessions cannot be spread over 10 folds.
+        groups_per_raga = collections.Counter()
+        seen: set[tuple[str, str]] = set()
+        for lbl, grp in zip(y, groups):
+            if (lbl, grp) not in seen:
+                seen.add((lbl, grp))
+                groups_per_raga[lbl] += 1
 
-    per_fold_detail = n_tracks_out <= 60
-    results = [
-        evaluate_model("Logistic Regression", logreg, X, y, groups, valid_records,
-                       splitter, per_fold_detail, show_confusion=n_classes <= 8),
-        evaluate_model("Random Forest", rf, X, y, groups, valid_records,
-                       splitter, per_fold_detail, show_confusion=n_classes <= 8),
-    ]
+        print(f"\n\n{'#' * 70}")
+        print(f"# GROUPING UNIT: {grouping.upper()}")
+        print(f"{'#' * 70}")
+        print(f"{len(set(groups))} distinct groups over {n_tracks_out} tracks")
+        print("Groups per raga:", dict(sorted(groups_per_raga.items())))
 
-    print("\n\n===== RESULT SUMMARY =====")
-    print(f"dataset={args.dataset}  tonic={mode}  cv={args.cv}  "
-          f"tracks={n_tracks_out}  ragas={n_classes}  segments={X.shape[0]}")
-    print(f"{'model':<22}{'track acc':>11}{'seg acc':>10}{'seg x chance':>14}")
-    for r in results:
-        print(f"{r['model']:<22}{r['track_accuracy']:>11.4f}{r['segment_accuracy']:>10.4f}"
-              f"{r['segment_accuracy'] / r['chance']:>13.1f}x")
-    print(f"chance baseline: {results[0]['chance']:.4f}")
-    print(f"feature build time: {build_seconds:.1f}s")
+        if args.cv == "logo":
+            splitter = LeaveOneGroupOut()
+            cv_desc = "LeaveOneGroupOut"
+        else:
+            n_splits = min(args.n_splits, min(groups_per_raga.values()))
+            if n_splits < args.n_splits:
+                limiting = [r for r, c in groups_per_raga.items()
+                            if c == min(groups_per_raga.values())]
+                print(f"  note: reducing n_splits {args.n_splits} -> {n_splits}; "
+                      f"limited by {limiting}")
+            splitter = StratifiedGroupKFold(
+                n_splits=n_splits, shuffle=True, random_state=args.seed
+            )
+            cv_desc = f"StratifiedGroupKFold({n_splits})"
+        print(f"Using {cv_desc}")
+
+        per_fold_detail = n_tracks_out <= 60
+        results = [
+            evaluate_model("Logistic Regression", logreg, X, y, groups, valid_records,
+                           splitter, per_fold_detail, show_confusion=n_classes <= 8),
+            evaluate_model("Random Forest", rf, X, y, groups, valid_records,
+                           splitter, per_fold_detail, show_confusion=n_classes <= 8),
+        ]
+
+        print(f"\n===== RESULT SUMMARY (grouped by {grouping}) =====")
+        print(f"dataset={args.dataset}  tonic={mode}  cv={cv_desc}  "
+              f"tracks={n_tracks_out}  ragas={n_classes}  segments={X.shape[0]}")
+        print(f"{'model':<22}{'track acc':>11}{'seg acc':>10}{'seg x chance':>14}")
+        for r in results:
+            print(f"{r['model']:<22}{r['track_accuracy']:>11.4f}"
+                  f"{r['segment_accuracy']:>10.4f}"
+                  f"{r['segment_accuracy'] / r['chance']:>13.1f}x")
+        print(f"chance baseline: {results[0]['chance']:.4f}")
+
+        all_runs[grouping] = {
+            "grouping": grouping,
+            "cv": cv_desc,
+            "n_groups": len(set(groups)),
+            "groups_per_raga": dict(sorted(groups_per_raga.items())),
+            "results": results,
+        }
+        write_results(args, grouping, all_runs[grouping], X, n_tracks_out,
+                      n_classes, build_seconds, per_raga, Counter(y))
+
+    if len(all_runs) > 1:
+        print("\n\n===== GROUPING COMPARISON =====")
+        print(f"{'model':<22}" + "".join(f"{g:>16}" for g in args.group_by))
+        for i, name in enumerate(["Logistic Regression", "Random Forest"]):
+            row = f"{name:<22}"
+            for g in args.group_by:
+                r = all_runs[g]["results"][i]
+                row += f"{r['segment_accuracy']:>10.4f} seg"
+            print(row)
+            row = f"{'  (track-level)':<22}"
+            for g in args.group_by:
+                r = all_runs[g]["results"][i]
+                row += f"{r['track_accuracy']:>10.4f} trk"
+            print(row)
+
+    print(f"\nfeature build time: {build_seconds:.1f}s")
 
 
 if __name__ == "__main__":
