@@ -1161,7 +1161,107 @@ All tagged so nothing overwrites prior runs:
 
 ### Next steps
 
-- **Full 300-track / 30-raga run**, annotated tonic, album-grouped, in both tonic modes for comparison (~16 min extraction each). 30 classes at chance 0.033 is a much harder problem than these 5; expect substantially lower absolute accuracy and judge it against chance.
-- Check session structure across all 300 recordings before that run — if some of the 30 ragas have very few independent sessions, album grouping may cap the fold count awkwardly low.
+- **Full 300-track / 30-raga run**, annotated tonic, both groupings (done — see below).
 - Point `run_tonic_validation.py` at HMD for all 300 tracks; only 20 were spot-checked, and the estimator error rate on HMD is still not properly characterised.
 - The tonic estimator itself remains unfixed (octave/fifth resolution in `resolve_tonic_octave`). Annotated tonics are a workaround that will not transfer to data lacking annotations.
+
+---
+
+## 2026-08-17 – Full HMD run: 30 ragas, 300 recordings
+
+The scale-up run the whole preceding sequence was building toward.
+
+### Dataset statistics gathered first (bias audit)
+
+Before running, per-raga structure was measured across all 300 recordings:
+
+- **Total 116.1 hours / 20,821 segments**, matching the dataset's documented "116 hours" exactly.
+- Track durations span **1.6 to 71.1 minutes** (median 21.4). Per-track segment counts span 5 to 213.
+- Track counts are perfectly balanced (10 per raga) but **segment counts are not**: Śrī yields 1,095 segments, Dēś only 392 — a **2.8× imbalance**. Since the classifier trains on segments, long ragas carry ~3× the weight, and segment-level accuracy is dominated by them. **Track-level accuracy is the fairer headline metric on this dataset.**
+- Artist diversity per raga ranges from **2 to 10**. The extreme case is **Khamāj: 10 recordings from just 2 artists across 4 albums**.
+- Across all 300 recordings there are only **158 independent (artist, album) sessions** — roughly half the collection shares a session with another recording, more overlap than the 5-raga pilot's 33/50.
+
+### Method
+
+Annotated (`.tonicFine`) tonic, 30s/20s windows, 71 features. Features are
+identical across grouping schemes — grouping changes only cross-validation —
+so extraction runs once and both evaluations reuse it (`--group-by track album`),
+writing separate result files. Extraction: **20,821 segments, zero failures,
+895 s (14.9 min)**, matching Pilot 1's ~16 min projection.
+
+### Results
+
+| grouping | CV | model | track acc | segment acc | × chance |
+|---|---|---|---|---|---|
+| track | SGKF(10), 300 groups | **Logistic Regression** | **0.9300** | **0.7079** | **21.2×** |
+| track | SGKF(10), 300 groups | Random Forest | 0.9333 | 0.6735 | 20.2× |
+| album | SGKF(4), 158 groups | **Logistic Regression** | **0.8633** | **0.6648** | **19.9×** |
+| album | SGKF(4), 158 groups | Random Forest | 0.8533 | 0.6264 | 18.8× |
+
+Chance = 0.0333. Misclassified recordings: 21/300 (LR) and 20/300 (RF) under
+track grouping; 41/300 and 44/300 under album grouping.
+
+The album-grouped fold count was **automatically capped at 4 by Khamāj**, which
+has only 4 independent sessions. As in the pilot, part of the track→album gap
+is therefore reduced training data (~75% vs ~90% per fold), not the album
+effect alone — so **4–8 points is an upper bound** on the session confound. It
+is larger than the pilot's 2–4 points, consistent with the full set having
+proportionally more session overlap.
+
+### The Khamāj hypothesis was wrong
+
+The 2026-08-17 pilot entry predicted Khamāj would score conspicuously *high*,
+since 10 recordings from 2 artists invites the model to recognise a voice
+rather than the raga. **It did not.** Khamāj's F1 is **0.598** under track
+grouping, below the 0.696 macro average, and **0.523** under album grouping. It
+does lose more than average when sessions are separated (−0.075 vs −0.048
+macro), so it is more session-dependent than most — but the artist-identity
+confound did not inflate it. Keeping it in the study was correct.
+
+### What does predict per-class performance: data volume
+
+Correlation between segments per raga and per-class F1 is **+0.38**. The
+bottom-10 classes average 545 segments, the top-10 average 743.
+
+| | weakest | strongest |
+|---|---|---|
+| | Dēś F1 0.488 (392 segs) | Mārvā F1 0.911 (727 segs) |
+| | Basant 0.531 (491) | Śrī 0.834 (1095) |
+| | Yaman kalyāṇ 0.543 (752) | Bairāgi 0.830 (554) |
+
+Dēś, the shortest raga, is the weakest class. But the relationship is far from
+deterministic — Mārvā is strongest on middling data, Yaman kalyāṇ weak despite
+752 segments — so duration bias is a real contributor, not the whole story. It
+is a concrete argument for testing a per-recording segment cap.
+
+### Where this leaves the project
+
+| | Saraga | HMD full |
+|---|---|---|
+| ragas | 6 | **30** |
+| recordings | 13 | **300** |
+| best track accuracy | 0.615 | **0.9300** (0.8633 album-grouped) |
+| × chance (segment) | 3.1× | **21.2×** |
+
+**The ceiling was sample scarcity, and it is gone.** Accuracy went *up* while
+the problem got five times harder. The 2026-08-16 corrections (leaky split,
+wrong tonic) plus the scale-up together turn an indefensible 0.9051 on 6 ragas
+into a defensible 0.93 on 30.
+
+The LR/RF pattern completes: RF ties or edges LR on track accuracy but loses on
+segment accuracy in both groupings, and its deficit widens under the stricter
+one (−0.038 track-grouped, −0.038 album-grouped on segments). Consistent with
+every observation since the tonic was corrected.
+
+### Artifacts
+
+`outputs/classifier_runs_hmd-full-30raga/` holds one JSON and one readable
+report per grouping, each with per-class precision/recall/F1, the per-raga
+tracks/segments/CV-groups bias table, and every misclassified recording listed.
+
+### Next steps
+
+- **Segment cap experiment**: cap segments per recording (e.g. at the 64-segment median) so long recordings cannot dominate, and compare. This is a real experimental variable, not cleanup, so it should be run alongside the uncapped result rather than replacing it.
+- Estimated-tonic variant of this run, to confirm the tonic effect at 30 classes as it was confirmed at 5.
+- `run_tonic_validation.py` across all 300 HMD tracks.
+- Fix the tonic estimator's octave/fifth resolution — still the one unaddressed root cause.

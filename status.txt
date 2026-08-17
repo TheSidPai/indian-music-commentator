@@ -37,14 +37,15 @@ Repository tree
 │       └── tsne/
 │           ├── README.md
 │           └── (6 archived historical t-SNE snapshots)
-├── outputs/
-│   ├── classifier_compare/
-│   │   ├── classifier_summary.json
-│   │   ├── logistic_regression_analysis.txt
-│   │   └── random_forest_analysis.txt
+├── outputs/                       (all generated; filenames carry a run tag
+│   │                               so different runs never overwrite)
+│   ├── classifier_compare/                    (CSV-based LR/RF comparison)
+│   ├── classifier_compare_annotated-tonic/
+│   ├── classifier_runs_hmd-full-30raga/       (the headline result:
+│   │                                           JSON + report per grouping)
 │   ├── experiment_three_hybrid_results.csv
-│   ├── key_segment_features_table.csv
-│   └── tsne_segments.png
+│   ├── key_segment_features_table*.csv        (per dataset / tonic / run tag)
+│   └── tsne_segments*.png                     (ditto)
 ├── tests/
 │   ├── classifier_compare.py
 │   ├── inspect_features.py
@@ -83,13 +84,44 @@ The docs/experiments folder records the baseline history and experiment decision
 The tests/ folder contains evaluation scripts and feature inspection helpers (not, mostly, actual pytest tests -- see the renaming note above).
 Generated artifacts (the CSV feature tables, t-SNE plots, classifier reports) live under outputs/.
 
-What the current docs say
--------------------------
+CURRENT HEADLINE RESULT (2026-08-17)
+------------------------------------
 
-The baseline log says the current best classifier is Random Forest, because it reached the highest reported accuracy in the June 2026 comparison: 0.9051 segment-level accuracy, versus 0.8035 for logistic regression.
-That result came from the CSV-based comparison flow in tests/classifier_compare.py (reports now written to outputs/classifier_compare/), not from the older KNN baseline.
+Full CompMusic HMD run: 30 ragas, 300 recordings, 20,821 segments, 71 features,
+annotated (.tonicFine) tonic, 30s/20s windows. Chance = 0.0333.
 
-DO NOT CITE 0.9051 (established 2026-08-16). That number comes from a leaky
+                                     track acc   segment acc   x chance
+  grouped by track, SGKF(10)
+    Logistic Regression                0.9300      0.7079        21.2x
+    Random Forest                      0.9333      0.6735        20.2x
+  grouped by album, SGKF(4)   <-- strictest
+    Logistic Regression                0.8633      0.6648        19.9x
+    Random Forest                      0.8533      0.6264        18.8x
+
+Quote the album-grouped LR figures when a single number is needed: they are the
+strictest protocol run, preventing a recording session (same artist/tanpura/room)
+from spanning train and test. Full per-class reports, the per-raga bias table,
+and every misclassified recording are in
+outputs/classifier_runs_hmd-full-30raga/.
+
+For comparison, the Saraga set (6 ragas, 13 recordings) tops out at 0.615 track
+accuracy. Accuracy went UP while the problem got five times harder -- sample
+scarcity was the binding constraint, not the features or the classifier.
+
+Known biases in the HMD result (measured, not suspected):
+  - Track counts are balanced (10/raga) but segment counts are not: Sri 1095
+    vs Des 392, a 2.8x imbalance, because track durations range 1.6-71.1 min.
+    Segment-level accuracy is dominated by long recordings; track-level is the
+    fairer metric. Per-class F1 correlates +0.38 with segment count.
+  - Only 158 independent (artist, album) sessions back the 300 recordings.
+    Album grouping controls for this; the track-vs-album gap of 4-8 points is
+    an upper bound on the confound, since album grouping also forces 4 folds
+    instead of 10.
+  - Khamaj has 10 recordings from only 2 artists, and caps album-grouped folds
+    at 4. It was predicted to score artificially high; it does not (F1 0.598,
+    below the 0.696 macro average).
+
+HISTORICAL: DO NOT CITE 0.9051 (established 2026-08-16). That number comes from a leaky
 evaluation and is not comparable to the grouped results elsewhere in the docs.
 
 Cause: build_segment_feature_dataset wrote key_segment_features_table.csv as
@@ -111,15 +143,18 @@ LeaveOneGroupOut numbers below because GroupShuffleSplit holds out ~4 whole
 recordings at once and trains on ~9, without averaging over folds;
 run_segment_lr_rf.py's numbers are the ones to quote.
 
-The correct grouped numbers, from run_segment_lr_rf.py with LeaveOneGroupOut
-over the same 1809 segments / 71 features (matching the ~61.5% ceiling recorded
-in the 2026-06-22 and 06-23 log entries):
+The correct grouped Saraga numbers, from run_segment_lr_rf.py with
+LeaveOneGroupOut over the same 1809 segments / 71 features (matching the ~61.5%
+ceiling recorded in the 2026-06-22 and 06-23 log entries):
 
                         estimated tonic      annotated tonic
     LR  track-level         0.615                0.615
     LR  segment-level       0.375                0.520
     RF  track-level         0.615                0.538
     RF  segment-level       0.384                0.441
+
+These remain the reference Saraga numbers. The HMD figures at the top of this
+file supersede them as the project's headline result.
 
 A separate, real issue (do not conflate it with the leakage above): Stage-1
 estimates the tonic per 30s window, and tests/run_tonic_validation.py shows
@@ -133,7 +168,32 @@ coming partly from fitting track-specific estimator artifacts.
 The current entrypoint in use
 ------------------------------
 
-The active script is run_segment_lr_rf.py at the repo root (renamed from test_segment_lr_rf.py).
+run_segment_lr_rf.py at the repo root. It now drives both datasets and both
+evaluation protocols. Useful invocations:
+
+  # Saraga baseline (13 tracks, 6 ragas), leave-one-track-out
+  .venv/bin/python run_segment_lr_rf.py --annotated-tonic
+
+  # the headline HMD run: 300 tracks, 30 ragas, both groupings in one pass
+  .venv/bin/python run_segment_lr_rf.py --dataset compmusic_hmd \
+      --cv sgkf --n-splits 10 --group-by track album --annotated-tonic \
+      --run-tag "_hmd-full-30raga"
+
+  # a raga subset, N recordings each
+  .venv/bin/python run_segment_lr_rf.py --dataset compmusic_hmd \
+      --ragas "Bihāg" "Kēdār" --per-raga 10 --cv sgkf --group-by track album
+
+Key flags:
+  --dataset saraga | compmusic_hmd
+  --annotated-tonic     use the dataset's tonic instead of estimating per window
+  --cv logo | sgkf      leave-one-track-out, or StratifiedGroupKFold
+  --group-by track album   one or both; features are extracted once and each
+                        grouping evaluated separately (grouping does not change
+                        features, only cross-validation)
+  --ragas / --per-raga  subset selection (compmusic_hmd)
+  --run-tag             string inserted into output filenames; ALWAYS set this
+                        for a new experiment so nothing is overwritten
+  --skip-classification extract features and artifacts only
 
 How the current pipeline works when running run_segment_lr_rf.py
 ------------------------------------------------------------------
