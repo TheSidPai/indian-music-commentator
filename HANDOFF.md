@@ -133,7 +133,8 @@ is unfixed, and annotated tonics are a workaround that won't transfer to
 unannotated data.
 
 **Git**
-- Local `main` at `08c90d7`; `origin/main` at `579c441`; **2 commits unpushed**.
+- Snapshot at time of writing: `main` at `60577d5`, `origin/main` at `626f4db`,
+  **1 commit unpushed**. Verify with `git status -sb` rather than trusting this line.
 - Backup refs from the co-author-trailer rewrite still present and safe to delete
   once GitHub is confirmed: `pre-rewrite-backup`, `refs/original/refs/heads/main`.
 - `CLAUDE.md` lives at the workspace root, **outside any git repo** — updated but
@@ -198,7 +199,7 @@ Expect 62 features after Pass A. Compare against §2a.
 
 ## 6. QUEUED AFTER THAT
 
-1. Wire a CSV-based classifier sweep (extend `tests/classifier_compare.py`) so classifier variants cost seconds, not 15 min re-extraction.
+1. ~~Wire a CSV-based classifier sweep~~ — partly done: `classifier_compare.py --run <run_id>` now reads a run's `features.csv.gz` and writes into its `eval/`. Still only LR+RF; extend it to take a list of classifiers and a `--drop-features` argument (the latter is what makes the §5 ablations one-liners).
 2. Sweep classifiers on the frozen protocol — `HistGradientBoostingClassifier` first (most likely win), then LinearSVC, RBF-SVM, LDA, MLP.
 3. Permutation importance on the surviving feature set to find dead weight.
 4. Add swara **transition/bigram** features (144 dims) — targets the measured Kēdār/Bihāg confusion, which distribution-only features cannot see.
@@ -214,8 +215,9 @@ Expect 62 features after Pass A. Compare against §2a.
 
 ## 7. OPEN QUESTIONS
 
-- **§5 was recommended, not explicitly confirmed** — the handoff was requested
-  before an answer. Confirm before running.
+- **§5 is agreed** (2026-08-19): all three ablation passes approved. Pass A is
+  the immediate action; B and C follow as separate passes so any change is
+  attributable to a specific removal.
 - **Multiple-comparisons risk.** ~30 planned variants on one CV; picking the best
   will overstate. Defence undecided: log every variant, or decide on the 5-raga
   pilot and confirm only finalists on the full 300 (recommended), or hold out
