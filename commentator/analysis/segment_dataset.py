@@ -292,7 +292,7 @@ def build_segment_feature_dataset(
         get_tonic). When given, every segment of that track is analyzed
         against the supplied tonic instead of estimating one per window.
         Both Saraga and CompMusic HMD ship annotated tonics; per-segment
-        estimation is unreliable (see tests/run_tonic_validation.py).
+        estimation is unreliable (see scripts/run_tonic_validation.py).
 
     run_dir:
         Directory for this extraction's artifacts, written as `features.csv.gz`

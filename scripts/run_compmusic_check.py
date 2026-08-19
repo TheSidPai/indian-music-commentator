@@ -14,8 +14,8 @@ this script only exercises it.
 
 Usage
 -----
-    .venv/bin/python tests/run_compmusic_check.py
-    .venv/bin/python tests/run_compmusic_check.py --download   # first run, ~3.4 GB
+    .venv/bin/python scripts/run_compmusic_check.py
+    .venv/bin/python scripts/run_compmusic_check.py --download   # first run, ~3.4 GB
 """
 
 from __future__ import annotations

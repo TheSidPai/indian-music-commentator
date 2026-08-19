@@ -1513,3 +1513,76 @@ carried in the feats column. The extraction itself — `manifest.json`,
 - Swara **transition/bigram** features (144 dims) — now more clearly motivated, since Kēdār improved but `bigram_prop_*` is only 8 hand-picked pairs. Requires re-extraction.
 - Nyas features from the unused `.flatSegNyas` files.
 - Re-run the estimated-tonic variant against the 36-feature set: with `tonic_hz` gone, the tonic estimator's errors may bite differently.
+
+---
+
+## 2026-08-19 – `tests/` → `scripts/`, and a second round of decluttering
+
+Housekeeping, following the same audit logic as the outputs/ restructure above:
+find where the layout mismatches what the files actually are.
+
+**The core problem: `tests/` contained zero tests.** Every file in it was a
+driver script, an old baseline, or a generated artifact. The repo's only pytest
+test is `commentator/tests/test_pitch_contour.py`, in a different directory.
+This is *why* the earlier `test_*.py` → `run_*.py` renaming was needed at all —
+that rename treated the symptom; the directory name was the cause.
+
+**What moved**
+
+- `tests/` → **`scripts/`**, with a `README.md` describing each script.
+- **`scripts/legacy/`** created for superseded code: `classifier_compare.py`,
+  `run_segment_baseline_knn.py`, `run_mirdata_check.py`, `test_raga.ipynb`.
+- `commentator/analysis/experiment_three.py` → **`scripts/run_experiment_three.py`**.
+  It is a driver that *consumes* the package, not library code, and it sat in
+  the analysis module purely by accident of history. (Its siblings, experiments
+  one and two, live in the workspace-level `llm/` directory — outside this repo,
+  and therefore outside version control. Moving this one there too would have
+  untracked it, so it stays here.)
+- `run_pipeline_sanity_check.py` (root) → `scripts/`.
+- Four generated artifacts that had been committed *inside* `tests/` —
+  `key_features_table.csv`, `key_segment_features_table.csv`, `tsne_plot.png`,
+  `tsne_segments.png` — → `outputs/legacy/`. The outputs/ restructure migrated
+  the copies under `outputs/` and missed these.
+
+**Deleted:** `tests/run_stage1_sanity_check.py`. It built a Stage-1 schema and
+then evaluated `result["meta"]`, `result["tonic"]` and three more as bare
+expressions, with **no `print` anywhere** — running it produced no output at
+all. A notebook cell saved as a file.
+
+**Nine misleading result files quarantined.** `classifier_compare.py`'s outputs
+were sitting in three runs' `eval/` directories, unmarked, beside frozen-protocol
+results — with nothing to tell a reader they came from a single
+`GroupShuffleSplit` rather than the frozen protocol. Given that this script is
+the one behind the retracted 0.9051, that was the most actively misleading thing
+in the tree. They are now in `outputs/legacy/groupshufflesplit/<run_id>/`, and
+the script carries a docstring saying plainly that it is superseded.
+
+**`status.txt` → `ARCHITECTURE.md`.** `status.txt` had become a second
+"read this first" document that duplicated HANDOFF's numbers and drifted: it
+still quoted the 71-feature headline, still described `--run-tag` as inserting a
+string into *filenames*, and its "Bottom line" recommended the Saraga 0.520 /
+0.615 figures as the project's best result. Its genuinely unique content was the
+repo tree and the numbered pipeline walkthrough. That content is preserved in
+`ARCHITECTURE.md`, which now holds **no results at all** — HANDOFF is the sole
+authority on numbers, so the two can no longer disagree.
+
+**Two latent bugs surfaced by the move**
+
+1. `run_experiment_three.py`'s audio fallback resolved to `<repo root>/audio_folder`, **which does not exist**. The real directory is the workspace-level `llm/audio_folder`, and its filenames (`Raag_Abhogi.mp3` …) match the script's `clean_id` logic exactly. The fallback had presumably never fired.
+2. `classifier_compare.py` and `run_segment_baseline_knn.py` compute their output paths as `Path(__file__).parent.parent`. Moving them one level deeper into `scripts/legacy/` silently redirected that to `scripts/outputs/`. Caught by importing each moved script and printing its resolved constants — worth repeating after any future move, since these paths fail silently rather than raising.
+
+**Verified after the move:** all scripts compile and import, every resolved path
+points where it should, the one real pytest test passes, and `pytest` still
+collects exactly one test. All moves are recorded by git as renames, so history
+is preserved.
+
+**Not done — deliberately.** `.git` is 146 MB, of which ~95 MB is embedded
+base64 audio in two notebook cells (`test.ipynb` 86.4 MB of 87 MB;
+`commentator.ipynb` 8.9 MB of 9.3 MB), both from
+`IPython.display.Audio(track.audio_path)` outputs. This is ironic given that the
+project's design is that audio is never touched — 9.2 TB, access-restricted, and
+the pipeline consumes only pitch/tonic arrays. Reclaiming it requires a history
+rewrite and force-push, immediately after the co-author-trailer rewrite, so it is
+a decision rather than a cleanup. Stripping notebook outputs going forward
+(`nbstripout` or a pre-commit hook) would stop the growth without touching
+history.

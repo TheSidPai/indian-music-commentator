@@ -82,7 +82,7 @@ Saraga number.
 
 ### 2d. Tonic estimator error vs ground truth (Saraga)
 
-`tests/run_tonic_validation.py`
+`scripts/run_tonic_validation.py`
 
 | level | n | within ±50¢ raw | octave-folded | pitch-class errors |
 |---|---|---|---|---|
@@ -228,6 +228,15 @@ Artifacts: `outputs/runs/2026-08-17_hmd-full-30raga_annotated/eval/{71feat-contr
   how they are evaluated → a file in eval/.** `run_segment_lr_rf.py` refuses to
   write into a non-empty run directory without `--overwrite`.
 - t-SNE scales to 30 classes, subsamples above 4,000 points.
+- **Repo layout** (decluttered 2026-08-19): `tests/` → **`scripts/`**, because it
+  contained zero tests — the only pytest test is
+  `commentator/tests/test_pitch_contour.py`. `commentator/` is library code;
+  anything runnable is a driver in `scripts/`, or at the root if it is the main
+  program. `scripts/README.md` describes each one. Superseded code lives in
+  `scripts/legacy/`, superseded artifacts in `outputs/legacy/` — **never cite
+  either**. `status.txt` became **`ARCHITECTURE.md`**, which holds the tree and
+  the pipeline walkthrough and deliberately **no results**, so it can no longer
+  contradict this file.
 
 **Eval provenance — fixed 2026-08-19.** The eval artifacts used to record
 `n_features` (the count) but never *which* features, and **a count cannot be
@@ -247,10 +256,15 @@ check); **the tonic estimator fix** —
 workaround that won't transfer to unannotated data.
 
 **Git**
-- Snapshot at time of writing: `main` level with `origin/main` at `b112a30`,
-  with the 2026-08-19 ablation work (`run_segment_lr_rf.py`, `HANDOFF.md`, the
-  log entry, 8 new `eval/` files, `INDEX.md`) committed on top.
-  Verify with `git status -sb` rather than trusting this line.
+- Snapshot at time of writing: the 2026-08-19 ablation work is committed at
+  `e07a8f7`, with the `tests/` → `scripts/` declutter on top. Both sit ahead of
+  `origin/main`. Verify with `git status -sb` rather than trusting this line.
+- **`.git` is 146 MB, ~95 MB of it embedded base64 audio** in two notebook
+  cells (`test.ipynb`, `commentator.ipynb`) from
+  `IPython.display.Audio(track.audio_path)` outputs — despite the pipeline
+  never touching audio. Reclaiming it needs a history rewrite and force-push;
+  not done, and a decision rather than a cleanup. `nbstripout` or a pre-commit
+  hook would stop further growth without rewriting anything.
 - The co-author-trailer rewrite's backup refs (`pre-rewrite-backup`,
   `refs/original/refs/heads/main`) are **gone** — cleaned up once the rewritten
   history was confirmed on GitHub. Nothing left to delete.

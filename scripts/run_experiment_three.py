@@ -12,8 +12,9 @@ from commentator.analysis.stage1_schema import build_stage1_schema
 from commentator.analysis.swara_analyzer import generate_basic_swara_comment
 from commentator.io.saraga import load_track
 
-# Automatically discover the root .env file from the current module context
-ROOT_DIR = Path(__file__).resolve().parent.parent.parent
+# Repo root, resolved from this file's location (scripts/ is one level down),
+# so .env and outputs/ are found regardless of the caller's cwd.
+ROOT_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(dotenv_path=ROOT_DIR / ".env")
 
 try:
@@ -56,8 +57,9 @@ def get_track_audio_path(track_obj) -> Path | None:
     if hasattr(track_obj, 'audio_path') and track_obj.audio_path:
         return track_obj.audio_path
             
-    # Absolute path fallback matching directory configuration
-    workspace_audio_dir = Path(__file__).resolve().parent.parent.parent / "audio_folder"
+    # Absolute path fallback matching directory configuration. This is the
+    # workspace-level audio_folder (sibling of the repo), not one inside it.
+    workspace_audio_dir = ROOT_DIR.parent / "llm" / "audio_folder"
     track_id = track_obj.track_id
     
     # Clean track numeric prefixes if present (e.g., '20_Raag_Abhogi' -> 'Raag_Abhogi.mp3')

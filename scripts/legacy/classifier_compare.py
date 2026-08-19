@@ -1,3 +1,23 @@
+"""SUPERSEDED -- do not use for any reported result.
+
+This script splits with a single `GroupShuffleSplit`. Before `track_id` was
+exported to the features CSV, its `detect_group_column()` found no group
+column and silently fell back to `train_test_split(stratify=y)` -- a random
+split over *segments*. That produced the retracted 0.9051 / 0.8035 figures
+(see HANDOFF section 4). The group column now reaches the CSV, so grouping does
+engage, but a single shuffle split still holds out ~4 recordings at once
+without averaging over folds, and it is not the project's frozen protocol.
+
+Use `run_segment_lr_rf.py` instead. It owns the frozen protocol --
+StratifiedGroupKFold, the album group map, segment->track majority vote,
+seed 42 -- and `--from-run` re-evaluates a saved run's features.csv.gz under
+that protocol without re-extracting. HANDOFF section 6 records the decision not
+to extend this file.
+
+Kept only so the retracted figures remain reproducible for the record.
+Its outputs live in outputs/legacy/groupshufflesplit/, not in any run's eval/.
+"""
+
 import argparse
 from pathlib import Path
 import json
@@ -14,7 +34,8 @@ from sklearn.model_selection import GroupShuffleSplit, train_test_split
 
 # Resolved relative to this file (not the caller's cwd), so defaults land in
 # <repo root>/outputs/ regardless of where this script is run from.
-OUTPUTS_DIR = Path(__file__).resolve().parent.parent / "outputs"
+# Three levels up: scripts/legacy/ -> scripts/ -> repo root.
+OUTPUTS_DIR = Path(__file__).resolve().parent.parent.parent / "outputs"
 RUNS_DIR = OUTPUTS_DIR / "runs"
 
 

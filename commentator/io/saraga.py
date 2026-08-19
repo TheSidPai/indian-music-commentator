@@ -60,7 +60,7 @@ def get_tonic_for_track(track_id: str, saraga_dataset) -> float | None:
     """Return Saraga's annotated tonic in Hz, or None if absent.
 
     Saraga ships a ground-truth tonic per track (the `ctonic` annotation);
-    it is not the value Stage-1 estimates. See tests/run_tonic_validation.py
+    it is not the value Stage-1 estimates. See scripts/run_tonic_validation.py
     for the comparison between the two.
     """
     tonic = getattr(get_track(saraga_dataset, track_id), "tonic", None)

@@ -527,7 +527,7 @@ def main() -> None:
         "--annotated-tonic",
         action="store_true",
         help="use the dataset's annotated tonic instead of estimating one per "
-             "segment (see tests/run_tonic_validation.py for why this matters)",
+             "segment (see scripts/run_tonic_validation.py for why this matters)",
     )
     parser.add_argument("--dataset", choices=["saraga", "compmusic_hmd"],
                         default="saraga")

@@ -214,8 +214,9 @@ def main() -> None:
     print("=== Building segment dataset ===")
     from pathlib import Path
 
-    run_dir = (Path(__file__).resolve().parent.parent / "outputs" / "runs" /
-               "saraga-6raga_estimated_knn-baseline")
+    # Three levels up: scripts/legacy/ -> scripts/ -> repo root.
+    run_dir = (Path(__file__).resolve().parent.parent.parent / "outputs" /
+               "runs" / "saraga-6raga_estimated_knn-baseline")
 
     X, feature_names, records = build_segment_feature_dataset(
         tracks=TRACKS,

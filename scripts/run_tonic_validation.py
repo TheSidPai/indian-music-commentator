@@ -33,9 +33,9 @@ Hence both raw and octave-folded accuracy are reported.
 
 Usage
 -----
-    .venv/bin/python tests/run_tonic_validation.py            # 13 experiment tracks
-    .venv/bin/python tests/run_tonic_validation.py --all      # every Saraga track
-    .venv/bin/python tests/run_tonic_validation.py --skip-segments
+    .venv/bin/python scripts/run_tonic_validation.py            # 13 experiment tracks
+    .venv/bin/python scripts/run_tonic_validation.py --all      # every Saraga track
+    .venv/bin/python scripts/run_tonic_validation.py --skip-segments
 """
 
 from __future__ import annotations

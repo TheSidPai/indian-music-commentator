@@ -63,7 +63,7 @@ def analyze_pitch_musically(
         assignment; the histogram is still computed, so histogram-derived
         features are unaffected, and the value that *would* have been
         estimated is preserved under `tonic_result["estimated_tonic_hz"]`
-        for comparison. See tests/run_tonic_validation.py for why this
+        for comparison. See scripts/run_tonic_validation.py for why this
         matters: on the 6-raga Saraga set, 50.2% of 30s segments estimate a
         pitch-class-wrong tonic.
 
