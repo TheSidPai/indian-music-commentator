@@ -91,6 +91,27 @@ with segment count. Only **158 independent (artist, album) sessions**. Artist
 diversity per raga 2–10; **Khamāj = 2 artists / 4 sessions**, the binding
 constraint on album folds.
 
+### 2f. Per-feature diagnostics (measured on the 20,821 x 71 HMD table)
+
+Basis for the §5 ablations. "ratio" = variance explained by track identity /
+variance explained by raga; high means the feature describes the recording
+rather than the music.
+
+| family | n | ratio | note |
+|---|---|---|---|
+| `swara_prop_*` | 12 | **1.2** | genuine raga signal — keep |
+| `log_swara_count_*` | 12 | **1.3** | genuine raga signal — keep (see §5) |
+| `trigram_prop_*` | 6 | 6.9 | MI 0.000–0.008, near-dead |
+| `range_span_cents` | 1 | 7.5 | performer tessitura |
+| contour/stability | 16 | **8.5** | performance style, not raga |
+
+Individual features worth knowing:
+
+- **`hist_ref_hz` is constant at 55.0** across all 20,821 rows. Zero variance, MI 0.0000 — a hardcoded cents reference leaking into the vector. **The live feature count is therefore 70, not 71**; dropping it is provably a no-op.
+- **`tonic_hz` is constant within 100% of recordings**, 234 distinct values across 300 tracks — a near-unique session fingerprint. It has the **highest MI with raga of all 71 features (3.04)**, five times the best genuine feature (`hist_peak_1_cents`, 0.68). That is memorisation capacity, not musical signal, and it is exactly the back-door §5 Pass A closes.
+- Near-duplicate pairs (|r| > 0.97): `tonic_hz`/`log_tonic_hz` 0.998; `bigram_prop_Ni_Sa`/`Sa_Ni` 0.997; `mean_pitch_step_size_cents` vs `mean_positive/negative_pitch_diff` 0.985/0.988; `stable_frame_ratio`/`transition_frame_ratio` 0.985.
+- The 12 `swara_prop_*` sum to exactly 1.0 — compositional, so one is determined by the other eleven.
+
 ---
 
 ## 3. CURRENT STATE
@@ -162,40 +183,75 @@ unannotated data.
 
 ---
 
-## 5. DECIDED NEXT STEP
+## 5. DECIDED NEXT STEP — feature ablation, three passes
 
-**Ablate the absolute-pitch / recording-property features and re-run the full
-HMD set on the frozen album-grouped protocol.**
+All three agreed. Evidence for every drop is in §2f. **Filenames use the actual
+surviving count** (an earlier draft of this section said 65/59/52; that was a
+stale carry-over and is wrong — ignore it).
 
-Rationale: a raga is defined independently of absolute pitch, so `tonic_hz` etc.
-carry no legitimate raga information — but they do encode performer vocal range
-and tanpura tuning. With only 158 sessions behind 300 recordings, they are a
-plausible back-door for the artist confound the album grouping exists to
-control. Either result is informative: unchanged accuracy means drop them
-permanently; a drop means part of the headline was riding on performer identity.
+### Harness
 
-Exact change — add these 9 names to `DROP_NAMES` in
-`commentator/analysis/raga_features.py` (currently 11 entries, verified present
-in the live 71-feature vector):
+Add `--from-run <run_id> --drop-features <names...> --feature-set <name>` to
+**`run_segment_lr_rf.py`**, loading `features.csv.gz` and skipping extraction.
+`apply_feature_subset` is pure column masking, so dropping columns from the
+saved table is numerically identical to re-extracting (imputation and scaling
+are per-column) — no re-extraction for any pass.
 
-```
-tonic_hz, log_tonic_hz, target_hz, n_tonic_candidates,
-n_voiced_frames, log_n_voiced_frames, n_confident_frames,
-log_n_confident_frames, confident_ratio
-```
+**Do not use `tests/classifier_compare.py`** for these. It splits with a single
+`GroupShuffleSplit`, the same family of shortcut that produced the retracted
+0.9051. The frozen protocol — SGKF, album group map, segment→track majority
+vote, seed 42 — exists only in `run_segment_lr_rf.py`, and reusing that exact
+code path is what makes A/B/C comparable to §2a.
 
-**No re-extraction is needed.** `apply_feature_subset` is pure column masking,
-so dropping these columns from the saved
-`outputs/runs/2026-08-17_hmd-full-30raga_annotated/features.csv.gz` gives
-numerically identical results to re-extracting (imputation and scaling are
-per-column). All three ablation passes are column subsets of that one table —
-they belong in its `eval/` as `65feat-passA_*`, `59feat-passB_*`,
-`52feat-passC_*`, not in new run directories. Only *adding* features
-(transitions, nyas) requires re-extraction.
+### Control pass first — this gates everything
 
-Expect 62 features after Pass A. Compare against §2a.
+Re-evaluate the untouched 71 columns from the saved CSV and require an **exact**
+reproduction of §2a (album LR 0.8633 / 0.6648; track LR 0.9300 / 0.7079). Folds
+depend only on labels, groups and seed, not on features, so with row order
+preserved this must match to the digit. **If it does not match exactly, stop** —
+no ablation delta is attributable to columns until it does.
 
----
+### The passes
+
+Run each with `--group-by track album` (one load, two evaluations). The album
+number is the report number; the track−album gap is itself a diagnostic.
+
+| pass | drops | surviving |
+|---|---|---|
+| control | — | 71 |
+| **A** — confounds | `tonic_hz`, `log_tonic_hz`, `target_hz`, `n_tonic_candidates`, `n_voiced_frames`, `log_n_voiced_frames`, `n_confident_frames`, `log_n_confident_frames`, `confident_ratio` | **62** |
+| **B** — dead weight | + `hist_ref_hz`, all 6 `trigram_prop_*` | **55** |
+| **C** — performance style | + the 16 contour/stability features (`mean_abs_pitch_diff_cents`, `std_pitch_diff_cents`, `mean_positive_pitch_diff_cents`, `mean_negative_pitch_diff_cents`, `frac_rising_frames`, `frac_falling_frames`, `frac_flat_frames`, `mean_pitch_step_size_cents`, `n_stable_regions`, `mean_stable_region_len`, `max_stable_region_len`, `stable_frame_ratio`, `n_transition_regions`, `mean_transition_region_len`, `max_transition_region_len`, `transition_frame_ratio`), plus `range_span_cents`, `unassigned_frames`, `log_unassigned_frames` | **36** |
+
+C leaves a clean, defensible set: 12 `swara_prop_*` + 12 `log_swara_count_*` +
+4 histogram-shape + 8 `bigram_prop_*`. All tonic-relative and raga-theoretic.
+
+**Do NOT drop `log_swara_count_*`.** A plausible-sounding argument says counts =
+proportions × voiced density, so they smuggle back a recording property. The
+data says otherwise: track/raga variance ratio **1.3**, essentially identical to
+`swara_prop_*` at 1.2, and `log_swara_count_re` has the second-highest mutual
+information of any feature (0.46). They are raga signal, not confound.
+
+### Expectations
+
+- **A**: album LR should move little (the 24 swara dims carry the signal). Two directional checks: **RF should lose more than LR** (it splits greedily on high-cardinality continuous columns, and `tonic_hz` is a near-unique session id); and **track-grouped should lose more than album-grouped**, narrowing the 0.93/0.86 gap, since under track grouping a held-out track's album siblings sit in training with nearly the same tonic. Accuracy going slightly *up* is plausible — fewer confounded dims can help LR's regularisation.
+- **B**: near no-op by construction (`hist_ref_hz` is provably inert). Expect ≤0.01. It is the attribution step, not a finding.
+- **C**: most likely to cost accuracy — 19 live dims. Guess 0.02–0.05 off album LR. If flat, adopt the 36-dim set permanently.
+
+### Statistical caveat, to be carried into the writeup
+
+At n=300 tracks and p≈0.86 the binomial SE is ≈0.020, so **any track-accuracy
+difference under ~4 points is inside 2 SE and not distinguishable from noise**.
+Three passes × two groupings × two models = 12 numbers on one CV. Log all 12;
+read only large, directionally consistent moves as real. This is §7's
+multiple-comparisons concern in concrete form.
+
+### Deliverables
+
+`62feat-passA_by-{track,album}_lr-rf.{json,txt}`, likewise `55feat-passB` and
+`36feat-passC`, plus `71feat-control_*`, all into
+`outputs/runs/2026-08-17_hmd-full-30raga_annotated/eval/`. INDEX.md rows
+appended. §2a left untouched.
 
 ## 6. QUEUED AFTER THAT
 
