@@ -1155,9 +1155,9 @@ segment 0.9193, track 0.9600, 4.6× chance** (LR, annotated tonic, album-grouped
 
 ### Artifacts
 
-All tagged so nothing overwrites prior runs:
-`outputs/key_segment_features_table_hmd-pilot{1,2}-*.csv`,
-`outputs/tsne_segments_hmd-pilot{1,2}-*.png` (with `_annotated-tonic` variants).
+`outputs/runs/2026-08-17_hmd-pilot1-30raga-1each_estimated/` and
+`outputs/runs/2026-08-17_hmd-pilot2-5raga-10each_{estimated,annotated}/`
+(paths as of the 2026-08-19 outputs restructure).
 
 ### Next steps
 
@@ -1255,9 +1255,11 @@ every observation since the tonic was corrected.
 
 ### Artifacts
 
-`outputs/classifier_runs_hmd-full-30raga/` holds one JSON and one readable
-report per grouping, each with per-class precision/recall/F1, the per-raga
-tracks/segments/CV-groups bias table, and every misclassified recording listed.
+`outputs/runs/2026-08-17_hmd-full-30raga_annotated/eval/` holds one JSON and one
+readable report per grouping, each with per-class precision/recall/F1, the
+per-raga tracks/segments/CV-groups bias table, and every misclassified recording
+listed. Headline numbers for all runs are tabulated in `outputs/INDEX.md`.
+(Paths as of the 2026-08-19 outputs restructure.)
 
 ### Next steps
 
@@ -1265,3 +1267,53 @@ tracks/segments/CV-groups bias table, and every misclassified recording listed.
 - Estimated-tonic variant of this run, to confirm the tonic effect at 30 classes as it was confirmed at 5.
 - `run_tonic_validation.py` across all 300 HMD tracks.
 - Fix the tonic estimator's octave/fifth resolution — still the one unaddressed root cause.
+---
+
+## 2026-08-19 – outputs/ restructured into run directories
+
+Housekeeping before the planned feature-ablation and classifier sweeps, which
+would otherwise have multiplied an already-cluttered flat directory.
+
+**What was wrong.** `outputs/` was 17 items flat, 40 MB, with every fact about a
+run encoded in its filename — the longest being 81 characters
+(`tsne_segments_hmd-pilot2-5raga-10each_5raga_71feat_30s-20shop_annotated-tonic.png`),
+which duplicated the raga count twice and still could not record the date, the
+command, or the git commit. It also mismatched the natural cardinality: feature
+extraction is expensive and rare (~15 min), evaluation is cheap and frequent, but
+the layout gave them equal footing — which is why the album-grouped run produced
+four byte-identical duplicate files that had to be deleted by hand.
+
+**New layout.** One directory per feature extraction:
+
+```
+outputs/
+├── INDEX.md              one row per evaluation, all runs
+├── runs/<run_id>/
+│   ├── manifest.json     command, git sha, params, full feature-name list
+│   ├── features.csv.gz   named columns, includes track_id
+│   ├── tsne.png
+│   └── eval/             every evaluation of those features
+├── commentary/  inspect_features/  legacy/
+```
+
+The rule: **anything that changes the numbers inside `features.csv.gz` gets a new
+run directory; anything that only changes how they are evaluated becomes a file
+in `eval/`.** Filenames inside a run are fixed and boring — the directory name and
+manifest carry the identity, so the filename can never again grow a new field.
+
+**Consequences worth recording**
+
+- Six historical runs migrated into run directories with back-filled manifests, figures verified against this log. Nothing was deleted; the byte-identical `tsne_segments.png` and the pre-restructure duplicates went to `legacy/`.
+- Feature CSVs are now gzipped: **40 MB → 18 MB** (2.5–2.6× per file).
+- CSVs now carry **real column names** instead of bare integers, which made `classifier_compare.py`'s hardcoded 41-entry `FEATURE_MAP` obsolete — deleted.
+- `build_segment_feature_dataset(run_tag=...)` became `run_dir=...`; with `run_dir=None` it computes features without writing anything.
+- `run_segment_lr_rf.py` now writes a manifest, appends to `INDEX.md`, and **refuses to write into a non-empty run directory** without `--overwrite`.
+- Fixed a latent bug in `classifier_compare.py`: `top_logreg_features` assumed `coef_` had one row per class, so it crashed on 2-class problems where sklearn returns a single row. Surfaced by a 2-raga verification run.
+
+**Bearing on the planned ablations.** `apply_feature_subset` is pure column
+masking, so dropping features from the saved table is numerically identical to
+re-extracting with them in `DROP_NAMES` (imputation and scaling are per-column).
+The three ablation passes are therefore **column subsets of the existing
+20,821 × 71 table** — no re-extraction, ~45 min and ~70 MB saved, and they belong
+in that run's `eval/`, not in new run directories. Only *adding* features
+(transition bigrams, nyas) needs a new extraction.

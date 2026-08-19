@@ -1,6 +1,11 @@
 from __future__ import annotations
 
 import argparse
+import sys
+import datetime
+import json
+import subprocess
+from pathlib import Path
 import time
 import collections
 from collections import Counter, defaultdict
@@ -102,23 +107,105 @@ def majority_vote(values: list[str]) -> str:
     return Counter(values).most_common(1)[0][0]
 
 
+OUTPUTS_DIR = Path(__file__).resolve().parent / "outputs"
+RUNS_DIR = OUTPUTS_DIR / "runs"
+INDEX_PATH = OUTPUTS_DIR / "INDEX.md"
+
+INDEX_HEADER = [
+    "# Experiment index",
+    "",
+    "One row per evaluation. Appended automatically by `run_segment_lr_rf.py`.",
+    "Feature tables, plots and manifests live in `outputs/runs/<run>/`;",
+    "every evaluation of a run's features is in that run's `eval/`.",
+    "",
+    "| run | dataset | ragas | tracks | feats | tonic | grouping | CV | model | track | segment | xchance |",
+    "|---|---|---|---|---|---|---|---|---|---|---|---|",
+]
+
+
+def run_id_for(args, n_ragas, n_tracks):
+    """Directory name for one feature extraction.
+
+    Identity = everything that changes the numbers inside features.csv.gz:
+    dataset, track subset, tonic mode, window. Things that only change how
+    those features are *evaluated* (grouping, classifier, CV) do not get a new
+    directory -- they become files in the run's eval/.
+    """
+    if args.run_tag:
+        return args.run_tag.lstrip("_")
+    date = datetime.date.today().isoformat()
+    tonic = "annotated" if args.annotated_tonic else "estimated"
+    subset = f"{n_ragas}raga-{n_tracks}track"
+    win = f"{int(args.segment_length)}s-{int(args.hop)}hop"
+    return f"{date}_{args.dataset}_{subset}_{win}_{tonic}"
+
+
+def write_manifest(run_dir, args, argv, X, feature_names, n_tracks, n_ragas,
+                   build_seconds, tracks_per_raga, segments_per_raga):
+    """Single source of truth for what produced this run's features."""
+    try:
+        commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"],
+                                capture_output=True, text=True,
+                                cwd=Path(__file__).resolve().parent
+                                ).stdout.strip() or None
+    except Exception:
+        commit = None
+
+    manifest = {
+        "run_id": run_dir.name,
+        "created": datetime.datetime.now().isoformat(timespec="seconds"),
+        "git_commit": commit,
+        "command": " ".join(argv),
+        "dataset": args.dataset,
+        "tonic": "annotated" if args.annotated_tonic else "estimated",
+        "n_tracks": n_tracks,
+        "n_ragas": n_ragas,
+        "n_segments": int(X.shape[0]),
+        "n_features": int(X.shape[1]),
+        "feature_names": list(feature_names),
+        "segment_length_s": args.segment_length,
+        "hop_s": args.hop,
+        "min_duration_s": 15.0,
+        "build_seconds": round(build_seconds, 1),
+        "tracks_per_raga": dict(sorted(tracks_per_raga.items())),
+        "segments_per_raga": dict(sorted(segments_per_raga.items())),
+    }
+    with open(run_dir / "manifest.json", "w", encoding="utf-8") as f:
+        json.dump(manifest, f, indent=2, ensure_ascii=False)
+    print(f"  wrote {run_dir / 'manifest.json'}")
+
+
+def append_to_index(run_dir, args, run, n_tracks, n_ragas, n_features):
+    """Append this evaluation's headline numbers to outputs/INDEX.md."""
+    if not INDEX_PATH.exists():
+        INDEX_PATH.write_text("\n".join(INDEX_HEADER) + "\n", encoding="utf-8")
+    tonic = "ann" if args.annotated_tonic else "est"
+    rows = []
+    for r in run["results"]:
+        rows.append(
+            f"| {run_dir.name} | {args.dataset} | {n_ragas} | {n_tracks} | "
+            f"{n_features} | {tonic} | {run['grouping']} | {run['cv']} | "
+            f"{r['model']} | {r['track_accuracy']:.4f} | "
+            f"{r['segment_accuracy']:.4f} | {r['segment_accuracy'] / r['chance']:.1f}x |"
+        )
+    with open(INDEX_PATH, "a", encoding="utf-8") as f:
+        f.write("\n".join(rows) + "\n")
+    print(f"  appended {len(rows)} row(s) to {INDEX_PATH}")
+
+
 def write_results(args, grouping, run, X, n_tracks, n_classes, build_seconds,
-                  tracks_per_raga, segments_per_raga):
+                  tracks_per_raga, segments_per_raga, run_dir, feature_set="71feat-full"):
     """Persist one grouping's results as JSON + a readable report.
 
-    Written per grouping scheme so the two evaluations stay distinct on disk:
-    the feature CSV/plot are shared (grouping does not change features), but
-    the results are not.
+    Written into the run's eval/ so several evaluations of the same feature
+    table stay distinct without duplicating the table itself.
     """
-    import json
-    from pathlib import Path
     from sklearn.metrics import classification_report
 
-    outdir = (Path(__file__).resolve().parent / "outputs" /
-              f"classifier_runs{args.run_tag}")
+    outdir = run_dir / "eval"
     outdir.mkdir(parents=True, exist_ok=True)
     tonic_tag = "annotated" if args.annotated_tonic else "estimated"
-    stem = f"{args.dataset}_{tonic_tag}-tonic_grouped-by-{grouping}"
+    stem = f"{feature_set}_by-{grouping}_lr-rf"
 
     summary = {
         "dataset": args.dataset,
@@ -330,8 +417,11 @@ def main() -> None:
     parser.add_argument("--hop", type=float, default=20.0)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--run-tag", default="",
-                        help="string inserted into output filenames to keep runs "
-                             "from overwriting each other, e.g. '_hmd-pilot1'")
+                        help="explicit name for this run's directory under "
+                             "outputs/runs/. If omitted, one is derived from date, "
+                             "dataset, subset, window and tonic mode.")
+    parser.add_argument("--overwrite", action="store_true",
+                        help="allow writing into a run directory that already exists")
     parser.add_argument("--skip-classification", action="store_true",
                         help="extract features and write artifacts, then stop")
     args = parser.parse_args()
@@ -375,12 +465,19 @@ def main() -> None:
 
     mode = "ANNOTATED tonic" if args.annotated_tonic else "ESTIMATED tonic"
     n_ragas_in = len({t["raga_label"] for t in tracks})
+    run_dir = RUNS_DIR / run_id_for(args, n_ragas_in, len(tracks))
+    if run_dir.exists() and any(run_dir.iterdir()) and not args.overwrite:
+        parser.error(
+            f"run directory already exists and is not empty:\n  {run_dir}\n"
+            f"Pass --run-tag to name this run differently, or --overwrite to replace it."
+        )
+
     print(f"=== Building segment dataset ===")
     print(f"  dataset : {args.dataset}")
     print(f"  tonic   : {mode}")
     print(f"  tracks  : {len(tracks)} across {n_ragas_in} ragas")
     print(f"  window  : {args.segment_length}s / {args.hop}s hop")
-    print(f"  run tag : {args.run_tag or '(none)'}")
+    print(f"  run dir : outputs/runs/{run_dir.name}/")
 
     t0 = time.time()
     X, feature_names, records = build_segment_feature_dataset(
@@ -390,7 +487,7 @@ def main() -> None:
         hop_s=args.hop,
         min_duration_s=15.0,
         get_tonic_fn=tonic_fn,
-        run_tag=args.run_tag,
+        run_dir=run_dir,
     )
     build_seconds = time.time() - t0
 
@@ -430,6 +527,9 @@ def main() -> None:
     )
     print("\nSegments per raga:", dict(Counter(y)))
     print("Tracks per raga:", dict(per_raga))
+
+    write_manifest(run_dir, args, sys.argv, X, feature_names, n_tracks_out,
+                   n_classes, build_seconds, per_raga, Counter(y))
 
     if args.skip_classification:
         print("\n--skip-classification set: feature extraction only, stopping here.")
@@ -530,7 +630,10 @@ def main() -> None:
             "results": results,
         }
         write_results(args, grouping, all_runs[grouping], X, n_tracks_out,
-                      n_classes, build_seconds, per_raga, Counter(y))
+                      n_classes, build_seconds, per_raga, Counter(y), run_dir,
+                      feature_set=f"{X.shape[1]}feat-full")
+        append_to_index(run_dir, args, all_runs[grouping], n_tracks_out,
+                        n_classes, X.shape[1])
 
     if len(all_runs) > 1:
         print("\n\n===== GROUPING COMPARISON =====")

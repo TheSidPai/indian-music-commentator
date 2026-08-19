@@ -40,7 +40,9 @@ Produced by:
     --cv sgkf --n-splits 10 --group-by track album --annotated-tonic \
     --run-tag "_hmd-full-30raga"
 ```
-Results: `outputs/classifier_runs_hmd-full-30raga/*.json` / `.txt`
+Artifacts: `outputs/runs/2026-08-17_hmd-full-30raga_annotated/`
+(`manifest.json`, `features.csv.gz`, `tsne.png`, `eval/71feat-full_by-{track,album}_lr-rf.{json,txt}`).
+Headline numbers for every run are also tabulated in `outputs/INDEX.md`.
 
 ### 2b. Controlled 5-raga pilot (same ragas as Saraga, 10 recordings each)
 
@@ -114,9 +116,14 @@ constraint on album folds.
   `--cv logo|sgkf`, `--n-splits`, `--group-by track album` (multi-value: one
   extraction, N evaluations), `--ragas`, `--per-raga`, `--run-tag`,
   `--skip-classification`.
-- Results → `outputs/classifier_runs<run_tag>/` (JSON + report: per-class
-  P/R/F1, per-raga bias table, every misclassified recording).
-- All artifact filenames carry run/tonic tags — nothing overwrites.
+- **outputs/ layout** (restructured 2026-08-19): one directory per feature
+  extraction at `outputs/runs/<run_id>/` holding `manifest.json` (command, git
+  sha, params, feature names), `features.csv.gz` (named columns, gzipped) and
+  `tsne.png`; every evaluation of those features goes in that run's `eval/`.
+  `outputs/INDEX.md` tabulates all runs. Rule: **anything that changes the
+  numbers in features.csv.gz → new run directory; anything that only changes
+  how they are evaluated → a file in eval/.** `run_segment_lr_rf.py` refuses to
+  write into a non-empty run directory without `--overwrite`.
 - t-SNE scales to 30 classes, subsamples above 4,000 points.
 
 **Not implemented**: estimated-tonic full 30-raga run; any classifier beyond
@@ -176,15 +183,16 @@ n_voiced_frames, log_n_voiced_frames, n_confident_frames,
 log_n_confident_frames, confident_ratio
 ```
 
-Then:
-```bash
-.venv/bin/python run_segment_lr_rf.py --dataset compmusic_hmd \
-    --cv sgkf --n-splits 10 --group-by track album --annotated-tonic \
-    --run-tag "_hmd-full-30raga-noabspitch"
-```
+**No re-extraction is needed.** `apply_feature_subset` is pure column masking,
+so dropping these columns from the saved
+`outputs/runs/2026-08-17_hmd-full-30raga_annotated/features.csv.gz` gives
+numerically identical results to re-extracting (imputation and scaling are
+per-column). All three ablation passes are column subsets of that one table —
+they belong in its `eval/` as `65feat-passA_*`, `59feat-passB_*`,
+`52feat-passC_*`, not in new run directories. Only *adding* features
+(transitions, nyas) requires re-extraction.
 
-Expect 62 features, 20,821 segments, ~15 min extraction. Compare against §2a.
-Must use a **new `--run-tag`** so §2a artifacts survive.
+Expect 62 features after Pass A. Compare against §2a.
 
 ---
 

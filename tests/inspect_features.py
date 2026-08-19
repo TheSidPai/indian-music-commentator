@@ -17,13 +17,16 @@ import numpy as np
 # artifacts always land in <repo root>/outputs/ regardless of where this
 # script is run from.
 OUTPUTS_DIR = Path(__file__).resolve().parent.parent / "outputs"
+# Exploratory track-level inspection; kept out of outputs/runs/ (which holds
+# segment-level feature extractions written by run_segment_lr_rf.py).
+INSPECT_DIR = OUTPUTS_DIR / "inspect_features"
 
 
 def plot_tsne(X, labels, track_ids, out_path=None):
     if out_path is None:
         n_ragas = len(np.unique(labels))
         n_features = X.shape[1]
-        out_path = OUTPUTS_DIR / f"tsne_plot_{n_ragas}raga_{n_features}feat.png"
+        out_path = INSPECT_DIR / f"tsne_plot_{n_ragas}raga_{n_features}feat.png"
 
     Path(out_path).parent.mkdir(parents=True, exist_ok=True)
 
@@ -216,8 +219,8 @@ def main():
         index=track_ids,
     )
     df.insert(0, "raga_label", y)
-    OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
-    df.to_csv(OUTPUTS_DIR / 'key_features_table.csv')
+    INSPECT_DIR.mkdir(parents=True, exist_ok=True)
+    df.to_csv(INSPECT_DIR / 'key_features_table.csv')
     print("=== Key feature snapshot per track ===")
     print(df)
 

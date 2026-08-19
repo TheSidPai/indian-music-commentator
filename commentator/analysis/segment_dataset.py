@@ -77,7 +77,11 @@ def plot_tsne_segments(
     if out_path is None:
         n_ragas = len(np.unique(labels))
         n_features = X.shape[1]
-        out_path = OUTPUTS_DIR / f"tsne_segments_{n_ragas}raga_{n_features}feat.png"
+        # Fallback for direct calls only. build_segment_feature_dataset always
+        # passes an explicit path inside its run directory; ad-hoc plots are
+        # kept out of outputs/ top level so they cannot be mistaken for a run.
+        out_path = (OUTPUTS_DIR / "adhoc" /
+                    f"tsne_segments_{n_ragas}raga_{n_features}feat.png")
 
     Path(out_path).parent.mkdir(parents=True, exist_ok=True)
 
@@ -272,7 +276,7 @@ def build_segment_feature_dataset(
     hop_s: float = 50.0,
     min_duration_s: float = 15.0,
     get_tonic_fn: Callable[[str], float | None] | None = None,
-    run_tag: str = "",
+    run_dir: "Path | None" = None,
 ) -> tuple[np.ndarray, list[str], list[dict]]:
     """
     Build a segment-level feature dataset.
@@ -290,13 +294,14 @@ def build_segment_feature_dataset(
         Both Saraga and CompMusic HMD ship annotated tonics; per-segment
         estimation is unreliable (see tests/run_tonic_validation.py).
 
-    run_tag:
-        Optional discriminator inserted into the generated CSV/PNG filenames
-        (e.g. "_compmusic-hmd_pilot1"). Runs that differ in dataset or track
-        subset can otherwise collide: the filenames encode raga count,
-        feature count and window, none of which distinguish two datasets
-        that happen to share them. Empty by default, so existing Saraga
-        artifact names are unchanged.
+    run_dir:
+        Directory for this extraction's artifacts, written as `features.csv.gz`
+        and `tsne.png`. One directory per feature extraction; every evaluation
+        of those features lives in its `eval/` subdirectory (see
+        outputs/INDEX.md). Filenames inside are deliberately fixed -- the
+        directory name and its manifest.json carry the identity, so no metadata
+        is encoded in leaf filenames. If None, no artifacts are written and the
+        feature matrix is simply returned.
 
     Returns:
         X: feature matrix of valid segments
@@ -393,12 +398,16 @@ def build_segment_feature_dataset(
     track_ids = np.array([r["track_id"] for r in valid_records])
     segment_indices = np.array([r["segment_index"] for r in valid_records])
 
-    OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
+    if run_dir is None:
+        print("No run_dir given: skipping features.csv.gz / tsne.png")
+        if len(valid_records) != X.shape[0]:
+            raise RuntimeError(
+                f"Mismatch: {len(valid_records)} valid records vs {X.shape[0]} rows"
+            )
+        return X, feature_names, records
 
-    # An annotated-tonic run has the same raga/feature/window counts as an
-    # estimated-tonic one, so without this tag the two would overwrite each
-    # other's artifacts.
-    tonic_tag = "_annotated-tonic" if get_tonic_fn is not None else ""
+    run_dir = Path(run_dir)
+    run_dir.mkdir(parents=True, exist_ok=True)
 
     # track_id must be exported, not just used in-memory: without it, consumers
     # of this CSV cannot tell which rows came from the same recording, and any
@@ -411,24 +420,19 @@ def build_segment_feature_dataset(
     # It is a grouping key, NOT a feature. Kept as a string so that consumers
     # selecting numeric columns as features cannot pick it up by accident;
     # segment_index is deliberately not exported for the same reason.
-    df = pd.DataFrame(X)
+    # Column names are exported so consumers do not have to reconstruct them
+    # from a hardcoded list (the old CSV used bare integer column labels).
+    df = pd.DataFrame(X, columns=feature_names)
     df.insert(0, "track_id", track_ids)
     df.insert(0, "raga_label", y)
-    df.to_csv(OUTPUTS_DIR / f"key_segment_features_table{run_tag}{tonic_tag}.csv")
-
-    n_ragas = len(np.unique(y))
-    n_features = X.shape[1]
-    tsne_out_path = OUTPUTS_DIR / (
-        f"tsne_segments{run_tag}_{n_ragas}raga_{n_features}feat_"
-        f"{int(segment_length_s)}s-{int(hop_s)}shop{tonic_tag}.png"
-    )
+    df.to_csv(run_dir / "features.csv.gz", index=False, compression="gzip")
 
     plot_tsne_segments(
         X,
         y,
         track_ids,
         segment_indices=segment_indices,
-        out_path=tsne_out_path,
+        out_path=run_dir / "tsne.png",
         annotate=False,
     )
 

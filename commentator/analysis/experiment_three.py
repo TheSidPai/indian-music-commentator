@@ -122,7 +122,7 @@ def main():
         print("Error: google-genai package is missing.")
         return
 
-    outputs_dir = ROOT_DIR / "outputs"
+    outputs_dir = ROOT_DIR / "outputs" / "commentary"
     outputs_dir.mkdir(parents=True, exist_ok=True)
     output_csv = outputs_dir / "experiment_three_hybrid_results.csv"
     target_role = "advanced learner"

@@ -15,59 +15,15 @@ from sklearn.model_selection import GroupShuffleSplit, train_test_split
 # Resolved relative to this file (not the caller's cwd), so defaults land in
 # <repo root>/outputs/ regardless of where this script is run from.
 OUTPUTS_DIR = Path(__file__).resolve().parent.parent / "outputs"
+RUNS_DIR = OUTPUTS_DIR / "runs"
 
-FEATURE_MAP = {
-    '0': 'tonic_hz',
-    '1': 'log_tonic_hz',
-    '2': 'target_hz',
-    '3': 'n_tonic_candidates',
-    '4': 'swara_prop_Sa',
-    '5': 'swara_prop_re',
-    '6': 'swara_prop_Re',
-    '7': 'swara_prop_ga',
-    '8': 'swara_prop_Ga',
-    '9': 'swara_prop_Ma',
-    '10': 'swara_prop_Ma^',
-    '11': 'swara_prop_Pa',
-    '12': 'swara_prop_dha',
-    '13': 'swara_prop_Dha',
-    '14': 'swara_prop_ni',
-    '15': 'swara_prop_Ni',
-    '16': 'log_swara_count_Sa',
-    '17': 'log_swara_count_re',
-    '18': 'log_swara_count_Re',
-    '19': 'log_swara_count_ga',
-    '20': 'log_swara_count_Ga',
-    '21': 'log_swara_count_Ma',
-    '22': 'log_swara_count_Ma^',
-    '23': 'log_swara_count_Pa',
-    '24': 'log_swara_count_dha',
-    '25': 'log_swara_count_Dha',
-    '26': 'log_swara_count_ni',
-    '27': 'log_swara_count_Ni',
-    '28': 'n_voiced_frames',
-    '29': 'log_n_voiced_frames',
-    '30': 'n_confident_frames',
-    '31': 'log_n_confident_frames',
-    '32': 'confident_ratio',
-    '33': 'unassigned_frames',
-    '34': 'log_unassigned_frames',
-    '35': 'range_span_cents',
-    '36': 'hist_ref_hz',
-    '37': 'hist_peak_1_cents',
-    '38': 'hist_peak_1_height',
-    '39': 'hist_entropy',
-    '40': 'hist_concentration',
-}
 
 
 def clean_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    """Drop any stray index column. Feature columns already carry real names
+    (features.csv.gz is written with them), so no renaming table is needed."""
     df = df.copy()
-    if 'Unnamed: 0' in df.columns:
-        df = df.drop(columns=['Unnamed: 0'])
-    rename_map = {c: FEATURE_MAP[c] for c in df.columns if c in FEATURE_MAP}
-    df = df.rename(columns=rename_map)
-    return df
+    return df.drop(columns=[c for c in df.columns if c.startswith('Unnamed')])
 
 
 def detect_group_column(df: pd.DataFrame):
@@ -119,9 +75,12 @@ def format_confusion(cm, class_names, normalize=False):
 
 def top_logreg_features(model, feature_names, class_names, top_n=12):
     coefs = model.named_steps['clf'].coef_
+    # Binary problems give coef_ shape (1, n_features), not (n_classes, ...),
+    # so the second class shares the first row with the sign flipped.
     rows = []
     for class_idx, class_name in enumerate(class_names):
-        coef = coefs[class_idx]
+        coef = coefs[0] * (1 if class_idx == 0 or len(coefs) > 1 else -1) \
+            if len(coefs) == 1 else coefs[class_idx]
         order = np.argsort(np.abs(coef))[::-1][:top_n]
         rows.append((class_name, [(feature_names[i], float(coef[i])) for i in order]))
     return rows
@@ -226,18 +185,27 @@ def write_rf_report(path, model, X_train, X_test, y_train, y_test, class_names, 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--csv', default=str(OUTPUTS_DIR / 'key_segment_features_table.csv'))
-    parser.add_argument('--outdir', default=str(OUTPUTS_DIR / 'classifier_compare'))
+    parser.add_argument('--run', required=True,
+                        help="run directory name under outputs/runs/ (or a full path)")
+    parser.add_argument('--outdir', default=None,
+                        help="defaults to <run>/eval/")
     parser.add_argument('--test-size', type=float, default=0.25)
     parser.add_argument('--random-state', type=int, default=42)
     parser.add_argument('--rf-estimators', type=int, default=300)
     parser.add_argument('--rf-max-depth', type=int, default=8)
     args = parser.parse_args()
 
-    outdir = Path(args.outdir)
+    run_dir = Path(args.run)
+    if not run_dir.is_absolute() and not run_dir.exists():
+        run_dir = RUNS_DIR / args.run
+    features = run_dir / "features.csv.gz"
+    if not features.exists():
+        raise SystemExit(f"no features.csv.gz in {run_dir}")
+
+    outdir = Path(args.outdir) if args.outdir else run_dir / "eval"
     outdir.mkdir(parents=True, exist_ok=True)
 
-    df = pd.read_csv(args.csv)
+    df = pd.read_csv(features)
     df = clean_dataframe(df)
     if 'raga_label' not in df.columns:
         raise ValueError('CSV must contain a raga_label column.')
@@ -276,12 +244,15 @@ def main():
     logreg.fit(X_train, y_train)
     rf.fit(X_train, y_train)
 
+    # Same naming convention as run_segment_lr_rf.py's eval/ output, so a run's
+    # eval/ stays readable when several tools write into it.
+    stem = f"{len(feature_cols)}feat-full_by-{group_col or 'none'}_groupshufflesplit"
     write_logreg_report(
-        outdir / 'logistic_regression_analysis.txt',
+        outdir / f'{stem}_logreg.txt',
         logreg, X_train, X_test, y_train, y_test, class_names, feature_cols, group_col
     )
     write_rf_report(
-        outdir / 'random_forest_analysis.txt',
+        outdir / f'{stem}_rf.txt',
         rf, X_train, X_test, y_train, y_test, class_names, feature_cols, group_col
     )
 
@@ -294,7 +265,7 @@ def main():
         'logreg_accuracy': float(accuracy_score(y_test, logreg.predict(X_test))),
         'rf_accuracy': float(accuracy_score(y_test, rf.predict(X_test))),
     }
-    with open(outdir / 'classifier_summary.json', 'w', encoding='utf-8') as f:
+    with open(outdir / f'{stem}_summary.json', 'w', encoding='utf-8') as f:
         json.dump(summary, f, indent=2)
 
     print('Done.')

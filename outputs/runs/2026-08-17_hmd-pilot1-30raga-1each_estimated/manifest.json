@@ -1,0 +1,17 @@
+{
+  "run_id": "2026-08-17_hmd-pilot1-30raga-1each_estimated",
+  "created": "2026-08-17",
+  "command": "run_segment_lr_rf.py --dataset compmusic_hmd --per-raga 1 --skip-classification",
+  "dataset": "compmusic_hmd",
+  "tonic": "estimated",
+  "n_tracks": 30,
+  "n_ragas": 30,
+  "n_segments": 2077,
+  "n_features": 71,
+  "segment_length_s": 30.0,
+  "hop_s": 20.0,
+  "min_duration_s": 15.0,
+  "results": [],
+  "results_provenance": "backfilled during the 2026-08-19 outputs restructure; figures verified against docs/experiments/2026-06-raga-baseline-log.md",
+  "notes": "Plumbing/timing pilot. No classifier: with one recording per raga a group-aware split cannot both train and test on a class. Its t-SNE cannot separate raga identity from recording identity (perfectly confounded). Zero extraction failures; 0.046 s/segment."
+}

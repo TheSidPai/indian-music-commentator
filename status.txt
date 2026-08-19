@@ -37,15 +37,16 @@ Repository tree
 │       └── tsne/
 │           ├── README.md
 │           └── (6 archived historical t-SNE snapshots)
-├── outputs/                       (all generated; filenames carry a run tag
-│   │                               so different runs never overwrite)
-│   ├── classifier_compare/                    (CSV-based LR/RF comparison)
-│   ├── classifier_compare_annotated-tonic/
-│   ├── classifier_runs_hmd-full-30raga/       (the headline result:
-│   │                                           JSON + report per grouping)
-│   ├── experiment_three_hybrid_results.csv
-│   ├── key_segment_features_table*.csv        (per dataset / tonic / run tag)
-│   └── tsne_segments*.png                     (ditto)
+├── outputs/
+│   ├── INDEX.md                   (one row per evaluation, all runs)
+│   ├── runs/<run_id>/             (one dir per feature extraction)
+│   │   ├── manifest.json          (command, git sha, params, feature names)
+│   │   ├── features.csv.gz        (named columns incl. track_id)
+│   │   ├── tsne.png
+│   │   └── eval/                  (every evaluation of those features)
+│   ├── commentary/                (LLM commentary experiment results)
+│   ├── inspect_features/          (exploratory track-level inspection)
+│   └── legacy/                    (superseded pre-restructure artifacts)
 ├── tests/
 │   ├── classifier_compare.py
 │   ├── inspect_features.py
@@ -102,7 +103,8 @@ Quote the album-grouped LR figures when a single number is needed: they are the
 strictest protocol run, preventing a recording session (same artist/tanpura/room)
 from spanning train and test. Full per-class reports, the per-raga bias table,
 and every misclassified recording are in
-outputs/classifier_runs_hmd-full-30raga/.
+outputs/runs/2026-08-17_hmd-full-30raga_annotated/eval/, and summarised for
+every run in outputs/INDEX.md.
 
 For comparison, the Saraga set (6 ragas, 13 recordings) tops out at 0.615 track
 accuracy. Accuracy went UP while the problem got five times harder -- sample
@@ -124,7 +126,8 @@ Known biases in the HMD result (measured, not suspected):
 HISTORICAL: DO NOT CITE 0.9051 (established 2026-08-16). That number comes from a leaky
 evaluation and is not comparable to the grouped results elsewhere in the docs.
 
-Cause: build_segment_feature_dataset wrote key_segment_features_table.csv as
+Cause: build_segment_feature_dataset wrote its features CSV (then named
+key_segment_features_table.csv, now runs/<run>/features.csv.gz) as
 raga_label plus bare numeric feature columns, with no track_id column. So
 tests/classifier_compare.py's detect_group_column() found nothing and silently
 fell back to train_test_split(..., stratify=y) -- a random split over segments.
@@ -211,7 +214,7 @@ How the current pipeline works when running run_segment_lr_rf.py
    - a short textual comment from the same swara/tonic helpers
 8. extract_raga_features_from_stage1(...) in commentator/analysis/raga_features.py converts that Stage-1 dict into a numeric feature vector.
 9. That feature vector is built from tonic, swara, range, histogram, movement, stability, and pattern features, then reduced again by apply_feature_subset(...).
-10. build_segment_feature_dataset(...) collects all valid segments into X, feature_names, and records, and also writes outputs/key_segment_features_table.csv plus an outputs/tsne_segments_*.png (filename encodes raga count, feature count, and segment window) as side artifacts.
+10. build_segment_feature_dataset(...) collects all valid segments into X, feature_names, and records, and writes features.csv.gz + tsne.png into the run directory passed as run_dir (outputs/runs/<run_id>/).
 11. Back in run_segment_lr_rf.py, failed segments are dropped, y labels and groups are built from raga_label and track_id, and the evaluation uses LeaveOneGroupOut so the held-out unit is always an entire track.
 12. The script then fits and evaluates two pipelines:
    - Logistic Regression: SimpleImputer -> StandardScaler -> LogisticRegression

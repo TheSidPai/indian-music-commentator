@@ -1,0 +1,50 @@
+{
+  "run_id": "2026-08-17_hmd-pilot2-5raga-10each_annotated",
+  "created": "2026-08-17",
+  "command": "run_segment_lr_rf.py --dataset compmusic_hmd --ragas Bihāg Kēdār Bhūp Ābhōgī Śrī --per-raga 10 --cv sgkf --n-splits 10 --annotated-tonic",
+  "dataset": "compmusic_hmd",
+  "tonic": "annotated (.tonicFine)",
+  "n_tracks": 50,
+  "n_ragas": 5,
+  "n_segments": 3631,
+  "n_features": 71,
+  "segment_length_s": 30.0,
+  "hop_s": 20.0,
+  "min_duration_s": 15.0,
+  "results": [
+    {
+      "cv": "StratifiedGroupKFold(10)",
+      "grouping": "track",
+      "feature_set": "71feat-full",
+      "models": {
+        "Logistic Regression": {
+          "track_accuracy": 1.0,
+          "segment_accuracy": 0.9391
+        },
+        "Random Forest": {
+          "track_accuracy": 1.0,
+          "segment_accuracy": 0.9303
+        }
+      },
+      "chance": 0.2
+    },
+    {
+      "cv": "StratifiedGroupKFold(5)",
+      "grouping": "album",
+      "feature_set": "71feat-full",
+      "models": {
+        "Logistic Regression": {
+          "track_accuracy": 0.96,
+          "segment_accuracy": 0.9193
+        },
+        "Random Forest": {
+          "track_accuracy": 0.92,
+          "segment_accuracy": 0.8882
+        }
+      },
+      "chance": 0.2
+    }
+  ],
+  "results_provenance": "backfilled during the 2026-08-19 outputs restructure; figures verified against docs/experiments/2026-06-raga-baseline-log.md",
+  "notes": "Controlled comparison against Saraga: five of the same six ragas, 10 recordings each."
+}

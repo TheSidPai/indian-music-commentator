@@ -212,12 +212,18 @@ def main() -> None:
         return get_pitch_for_track(track_id, saraga)
 
     print("=== Building segment dataset ===")
+    from pathlib import Path
+
+    run_dir = (Path(__file__).resolve().parent.parent / "outputs" / "runs" /
+               "saraga-6raga_estimated_knn-baseline")
+
     X, feature_names, records = build_segment_feature_dataset(
         tracks=TRACKS,
         get_pitch_fn=pitch_fn,
         segment_length_s=30.0,
         hop_s=20.0,
         min_duration_s=15.0,
+        run_dir=run_dir,
     )
 
     failed_records = [r for r in records if r["failed"]]
