@@ -1317,3 +1317,199 @@ The three ablation passes are therefore **column subsets of the existing
 20,821 × 71 table** — no re-extraction, ~45 min and ~70 MB saved, and they belong
 in that run's `eval/`, not in new run directories. Only *adding* features
 (transition bigrams, nyas) needs a new extraction.
+
+---
+
+## 2026-08-19 – Feature ablation: the absolute-pitch features were a confound, not ballast
+
+The three passes planned in the entry above, run against the existing
+20,821 × 71 HMD table. The expectation was that removing performer- and
+recording-property features would cost little and buy defensibility. **The
+result was the opposite of the prediction in both direction and size**: the
+album-grouped headline rose from 0.8633 to 0.9300 track accuracy while the
+feature count fell from 71 to 36.
+
+### Harness
+
+`run_segment_lr_rf.py` gained `--from-run <run_id> --drop-features <names...>
+--feature-set <name>`: it loads a saved run's `features.csv.gz`, masks columns,
+and hands off to the existing evaluation path untouched. It never rewrites
+`manifest.json`, `features.csv.gz` or `tsne.png`, and now refuses to overwrite
+an existing `eval/` result without `--overwrite` — the same no-silent-clobber
+rule the run directories already had.
+
+`tests/classifier_compare.py` was deliberately **not** used. It splits with a
+single `GroupShuffleSplit`, the same family of shortcut that produced the
+retracted 0.9051. The frozen protocol — SGKF, album group map, segment→track
+majority vote, seed 42 — exists only in `run_segment_lr_rf.py`.
+
+### The control pass, as a gate
+
+Before any ablation, the untouched 71 columns were re-evaluated from the saved
+CSV. All four figures reproduced **exactly** — LR 0.9300/0.7079 and RF
+0.9333/0.6735 track-grouped, LR 0.8633/0.6648 and RF 0.8533/0.6264
+album-grouped — down to the misclassification counts (21, 20, 41, 44). Row
+order is the extraction order preserved by `to_csv`, and folds depend only on
+labels, groups and seed, so every pass below evaluates *the same 300 recordings
+under the same splits*. Column masking is the only difference between them.
+
+That is what makes the comparisons below paired, and it is why the gate mattered:
+without it, no delta would have been attributable to columns.
+
+### The passes
+
+| pass | drops | surviving |
+|---|---|---|
+| control | — | 71 |
+| **A** | 9 absolute-pitch / frame-count features | 62 |
+| **B** | + `hist_ref_hz` (constant 55.0) and all 6 `trigram_prop_*` | 55 |
+| **C** | + 16 contour/stability, `range_span_cents`, `unassigned_frames`, `log_unassigned_frames` | 36 |
+
+### Results — album-grouped, SGKF(4), 158 groups
+
+| pass | feats | LR track | LR seg | RF track | RF seg | LR errors |
+|---|---|---|---|---|---|---|
+| control | 71 | 0.8633 | 0.6648 | 0.8533 | 0.6264 | 41/300 |
+| **A** | 62 | **0.9267** | 0.7006 | 0.9267 | 0.6669 | 22/300 |
+| **B** | 55 | 0.9233 | 0.7000 | **0.9367** | 0.6657 | 23/300 |
+| **C** | 36 | **0.9300** | **0.7179** | 0.9300 | 0.6631 | 21/300 |
+
+### Results — track-grouped, SGKF(10), 300 groups
+
+| pass | feats | LR track | LR seg | RF track | RF seg |
+|---|---|---|---|---|---|
+| control | 71 | 0.9300 | 0.7079 | 0.9333 | 0.6735 |
+| A | 62 | 0.9500 | 0.7224 | 0.9233 | 0.6718 |
+| B | 55 | 0.9500 | 0.7236 | 0.9300 | 0.6704 |
+| C | 36 | **0.9567** | **0.7288** | 0.9333 | 0.6664 |
+
+### Significance: McNemar, not a binomial band
+
+The planning note proposed treating differences under ~4 points as noise, from
+a binomial SE of 0.020 at n=300. **That test was wrong for this design** — it
+assumes two independent samples, when in fact every pass predicts the same 300
+tracks under the same folds. The correct test is McNemar on the discordant
+recordings, and it is considerably more powerful.
+
+| comparison (album-grouped) | fixes | breaks | p |
+|---|---|---|---|
+| control → A, LR | 23 | 4 | **0.0003** |
+| control → B, LR | 21 | 3 | **0.0003** |
+| control → C, LR | 26 | 6 | **0.0005** |
+| control → A, RF | 30 | 8 | **0.0005** |
+| control → B, RF | 31 | 6 | **<0.0001** |
+| control → C, RF | 30 | 7 | **0.0002** |
+| A vs B, A vs C, B vs C (both models) | — | — | 0.25 – 1.00, none significant |
+| every comparison, track-grouped | — | — | 0.07 – 1.00, none significant |
+
+24 pairwise tests were run in total; the three pre-registered control-vs-pass
+album comparisons survive Bonferroni correction over all of them
+(0.0005 × 24 = 0.012).
+
+### Interpretation
+
+**The 9 Pass-A features were an active liability, not dead weight.** The pattern
+is the textbook signature of a confound:
+
+- **Track-grouped: no significant change.** A held-out recording's album
+  siblings sit in training with nearly the same tonic, so the confound still
+  pays off and removing it costs nothing.
+- **Album-grouped: significant improvement.** With the session unseen, those
+  same features mislead the model, and removing them fixes 23–31 recordings
+  while breaking 3–8.
+
+`tonic_hz` is constant within 100% of recordings with 234 distinct values across
+300 tracks, and carried the **highest mutual information with raga of all 71
+features (3.04)** — five times the best genuine feature. That MI was
+memorisation capacity, and under album grouping it was being spent on the wrong
+thing.
+
+**Most of the track→album gap was the confound, not the fold cap.** The
+2026-08-17 entry above attributed part of that gap to Khamāj capping album folds
+at 4, and put "4–8 points" as an upper bound on the session confound. Measured:
+the LR gap is **0.0667 at 71 features and 0.0267 at 36**. So roughly 4 points of
+the original gap were the confound features themselves, and **the upper bound on
+the session effect plus fold cap combined falls to ~2.7 points**.
+
+**B and C are free.** Dropping 26 further features changes nothing
+statistically — A, B and C are mutually indistinguishable. So the 36-feature set
+is chosen on parsimony and principle, *not* on 0.9300 > 0.9267, which is a
+one-recording difference and exactly the multiple-comparisons trap to avoid.
+
+### Per-class effect (album-grouped LR, control → C)
+
+Macro F1 **0.6478 → 0.7009**.
+
+| raga | control | pass C | note |
+|---|---|---|---|
+| Kēdār | 0.7079 | **0.7802** | the confusion the planned bigram features target |
+| Mārūbihāg | 0.4643 | **0.5202** | weakest class, still weakest |
+| Khamāj | 0.5232 | **0.4639** | the only notable *loss* |
+
+Khamāj losing is consistent rather than anomalous: with 2 artists and 4 sessions
+it had the most to gain from session cues, so it has the most to lose when they
+are removed. It remains a class to keep, as established on 2026-08-17.
+
+### The surviving 36 features
+
+12 `swara_prop_*` + 12 `log_swara_count_*` + 4 histogram-shape
+(`hist_peak_1_cents`, `hist_peak_1_height`, `hist_entropy`, `hist_concentration`)
++ 8 `bigram_prop_*`. All tonic-relative and raga-theoretic; none encodes absolute
+pitch, recording length, or tracker quality.
+
+**`log_swara_count_*` was nearly dropped on a plausible-sounding argument** —
+counts = proportions × voiced density, therefore a recording property in
+disguise. The per-feature diagnostics refuted it: track/raga variance ratio
+**1.3**, essentially identical to `swara_prop_*` at 1.2, and `log_swara_count_re`
+has the second-highest MI of any feature (0.46). Measure before cutting.
+
+### Contour/stability: dropped from the classifier, kept in the pipeline
+
+The 16 contour/stability features are dead weight *for classification* (ratio
+8.5, no significant loss when removed). They are **not** being removed from
+feature extraction. They describe movement — meend, stability, transition
+density — which is plausibly exactly what the eventual commentary system needs
+to say something musical. Extraction stays at 71 columns and the classifier
+masks down to 36 at evaluation time. This is also what the outputs/ rule already
+implies: removing features is column selection, so it lives in `eval/`, never in
+`DROP_NAMES`.
+
+### A provenance gap this exposed — and closed
+
+As first written, the eval artifacts recorded `n_features: 36` — the count,
+never the names. The filename `36feat-passC_by-album_lr-rf` is a *label*;
+nothing in the run defined it, and this run's back-filled `manifest.json` has no
+`feature_names` key at all. **A count cannot be inverted back to a set**, so
+those results were reproducible only as long as this log entry survived.
+
+The cause was a half-inherited convention: run directories carry identity in
+"directory name *and* manifest", but `eval/` had inherited only the filename
+half.
+
+**Fixed the same day.** `write_results` now records, per evaluation:
+`feature_set`, `features_used`, `features_dropped`, `n_features_in_table`,
+`evaluated_from`, `eval_command` and `git_commit` in the JSON; the TXT leads
+with a one-line feature-set summary and lists both name sets in full.
+`extraction_build_seconds` is `null` on an eval-only pass — it was previously
+`0.0`, which read as "extraction was instant" rather than "not measured".
+
+The four passes were re-run under `--overwrite` to backfill. **All 16 figures
+came back identical**, which is also a second, independent confirmation that the
+evaluation is deterministic given the table, the seed and the grouping.
+
+### Artifacts
+
+`outputs/runs/2026-08-17_hmd-full-30raga_annotated/eval/` now holds
+`71feat-control_*`, `62feat-passA_*`, `55feat-passB_*` and `36feat-passC_*`, each
+as a JSON and a readable report per grouping, each naming the exact columns it
+used and dropped. 16 rows appended to `outputs/INDEX.md`, with the pass name
+carried in the feats column. The extraction itself — `manifest.json`,
+`features.csv.gz`, `tsne.png` — is byte-unchanged.
+
+### Next steps
+
+- Classifier sweep on the 36-feature set — `HistGradientBoostingClassifier` first. The set is half the size, so the sweep is cheaper than planned.
+- Permutation importance on the surviving 36 to find any remaining dead weight.
+- Swara **transition/bigram** features (144 dims) — now more clearly motivated, since Kēdār improved but `bigram_prop_*` is only 8 hand-picked pairs. Requires re-extraction.
+- Nyas features from the unused `.flatSegNyas` files.
+- Re-run the estimated-tonic variant against the 36-feature set: with `tonic_hz` gone, the tonic estimator's errors may bite differently.

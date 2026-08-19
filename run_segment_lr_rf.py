@@ -107,6 +107,68 @@ def majority_vote(values: list[str]) -> str:
     return Counter(values).most_common(1)[0][0]
 
 
+def load_run_manifest(run_dir: Path) -> dict:
+    """Read a saved run's manifest so an eval-only pass inherits its identity.
+
+    Dataset, tonic mode and window are properties of the extraction, not of
+    the evaluation, so they come from the manifest rather than being retyped
+    on the command line where they could silently disagree with the table.
+    """
+    path = run_dir / "manifest.json"
+    if not path.exists():
+        raise SystemExit(f"no manifest.json in {run_dir}")
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def load_run_features(run_dir: Path, drop_features=None):
+    """Load a saved run's features.csv.gz instead of re-extracting it.
+
+    `apply_feature_subset` is pure column masking, and both imputation and
+    scaling are fitted per column, so evaluating a subset of the saved table
+    is numerically identical to re-extracting with those features removed.
+
+    Nothing already in the run directory is rewritten -- features.csv.gz,
+    tsne.png and manifest.json are read-only here, and only eval/ gains
+    files. Row order is the extraction order preserved by to_csv, so the
+    CV folds (which depend only on labels, groups and seed) are identical
+    to the ones the original run used.
+    """
+    import pandas as pd
+
+    csv_path = run_dir / "features.csv.gz"
+    if not csv_path.exists():
+        raise SystemExit(f"no features.csv.gz in {run_dir}")
+
+    df = pd.read_csv(csv_path, dtype={"track_id": str, "raga_label": str})
+    for required in ("raga_label", "track_id"):
+        if required not in df.columns:
+            raise SystemExit(f"{csv_path} has no {required!r} column")
+
+    # track_id and raga_label are keys, never features -- see the comment in
+    # segment_dataset.build_segment_feature_dataset.
+    feature_names = [c for c in df.columns if c not in ("raga_label", "track_id")]
+
+    drop = list(drop_features or [])
+    unknown = [n for n in drop if n not in feature_names]
+    if unknown:
+        raise SystemExit(
+            "--drop-features names absent from the table: " + ", ".join(unknown)
+            + f"\n({len(feature_names)} feature columns available)"
+        )
+    dropped = set(drop)
+    kept = [c for c in feature_names if c not in dropped]
+    if not kept:
+        raise SystemExit("--drop-features would remove every feature")
+
+    X = df[kept].to_numpy(dtype=float)
+    records = [
+        {"track_id": tid, "raga_label": lbl, "failed": False}
+        for tid, lbl in zip(df["track_id"], df["raga_label"])
+    ]
+    return X, kept, records, sorted(dropped)
+
+
 OUTPUTS_DIR = Path(__file__).resolve().parent / "outputs"
 RUNS_DIR = OUTPUTS_DIR / "runs"
 INDEX_PATH = OUTPUTS_DIR / "INDEX.md"
@@ -140,16 +202,21 @@ def run_id_for(args, n_ragas, n_tracks):
     return f"{date}_{args.dataset}_{subset}_{win}_{tonic}"
 
 
+def git_commit() -> str | None:
+    """Short SHA of HEAD, or None outside a repo / on any failure."""
+    try:
+        return subprocess.run(["git", "rev-parse", "--short", "HEAD"],
+                              capture_output=True, text=True,
+                              cwd=Path(__file__).resolve().parent
+                              ).stdout.strip() or None
+    except Exception:
+        return None
+
+
 def write_manifest(run_dir, args, argv, X, feature_names, n_tracks, n_ragas,
                    build_seconds, tracks_per_raga, segments_per_raga):
     """Single source of truth for what produced this run's features."""
-    try:
-        commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"],
-                                capture_output=True, text=True,
-                                cwd=Path(__file__).resolve().parent
-                                ).stdout.strip() or None
-    except Exception:
-        commit = None
+    commit = git_commit()
 
     manifest = {
         "run_id": run_dir.name,
@@ -175,8 +242,14 @@ def write_manifest(run_dir, args, argv, X, feature_names, n_tracks, n_ragas,
     print(f"  wrote {run_dir / 'manifest.json'}")
 
 
-def append_to_index(run_dir, args, run, n_tracks, n_ragas, n_features):
-    """Append this evaluation's headline numbers to outputs/INDEX.md."""
+def append_to_index(run_dir, args, run, n_tracks, n_ragas, n_features,
+                    feats_label=None):
+    """Append this evaluation's headline numbers to outputs/INDEX.md.
+
+    `feats_label` carries the feature-set name into the 'feats' column so
+    that several evaluations of one table (an ablation series, say) stay
+    distinguishable in the index without changing its column layout.
+    """
     if not INDEX_PATH.exists():
         INDEX_PATH.write_text("\n".join(INDEX_HEADER) + "\n", encoding="utf-8")
     tonic = "ann" if args.annotated_tonic else "est"
@@ -184,7 +257,7 @@ def append_to_index(run_dir, args, run, n_tracks, n_ragas, n_features):
     for r in run["results"]:
         rows.append(
             f"| {run_dir.name} | {args.dataset} | {n_ragas} | {n_tracks} | "
-            f"{n_features} | {tonic} | {run['grouping']} | {run['cv']} | "
+            f"{feats_label or n_features} | {tonic} | {run['grouping']} | {run['cv']} | "
             f"{r['model']} | {r['track_accuracy']:.4f} | "
             f"{r['segment_accuracy']:.4f} | {r['segment_accuracy'] / r['chance']:.1f}x |"
         )
@@ -194,18 +267,40 @@ def append_to_index(run_dir, args, run, n_tracks, n_ragas, n_features):
 
 
 def write_results(args, grouping, run, X, n_tracks, n_classes, build_seconds,
-                  tracks_per_raga, segments_per_raga, run_dir, feature_set="71feat-full"):
+                  tracks_per_raga, segments_per_raga, run_dir,
+                  feature_set="71feat-full", feature_names=None,
+                  features_dropped=None, from_run=False):
     """Persist one grouping's results as JSON + a readable report.
 
     Written into the run's eval/ so several evaluations of the same feature
     table stay distinct without duplicating the table itself.
+
+    Each file records *which* features it used, not just how many. The
+    filename is only a label: a count cannot be inverted back to a set, so
+    without `features_used` / `features_dropped` an evaluation of a feature
+    subset is not reproducible from its own artifacts. Run directories carry
+    identity in "directory name + manifest"; eval/ needs the same standard.
     """
     from sklearn.metrics import classification_report
+    import textwrap
 
     outdir = run_dir / "eval"
     outdir.mkdir(parents=True, exist_ok=True)
     tonic_tag = "annotated" if args.annotated_tonic else "estimated"
     stem = f"{feature_set}_by-{grouping}_lr-rf"
+
+    # Same rule as the run directory itself: never silently replace a saved
+    # result. This project has lost results to overwriting twice.
+    if (outdir / f"{stem}.json").exists() and not args.overwrite:
+        raise SystemExit(
+            f"eval result already exists:\n  {outdir / stem}.json\n"
+            f"Pass --feature-set to name this evaluation differently, "
+            f"or --overwrite to replace it."
+        )
+
+    feature_names = list(feature_names or [])
+    features_dropped = list(features_dropped or [])
+    n_in_table = int(X.shape[1]) + len(features_dropped)
 
     summary = {
         "dataset": args.dataset,
@@ -215,14 +310,26 @@ def write_results(args, grouping, run, X, n_tracks, n_classes, build_seconds,
         "n_tracks": n_tracks,
         "n_ragas": n_classes,
         "n_segments": int(X.shape[0]),
+        # What distinguishes this evaluation from others of the same table.
+        "feature_set": feature_set,
         "n_features": int(X.shape[1]),
+        "n_features_in_table": n_in_table,
+        "features_used": feature_names,
+        "features_dropped": features_dropped,
+        "evaluated_from": ("saved features.csv.gz (eval-only pass)" if from_run
+                           else "features extracted by this invocation"),
+        "eval_command": " ".join(sys.argv),
+        "git_commit": git_commit(),
         "n_cv_groups": run["n_groups"],
         "groups_per_raga": run["groups_per_raga"],
         "tracks_per_raga": dict(sorted(tracks_per_raga.items())),
         "segments_per_raga": dict(sorted(segments_per_raga.items())),
         "segment_length_s": args.segment_length,
         "hop_s": args.hop,
-        "build_seconds": round(build_seconds, 1),
+        # null on an eval-only pass: no extraction happened here, so 0.0 would
+        # read as "extraction was instant" rather than "not measured".
+        "extraction_build_seconds": (None if from_run or not build_seconds
+                                     else round(build_seconds, 1)),
         "chance": run["results"][0]["chance"],
         "models": {
             r["model"]: {
@@ -239,10 +346,35 @@ def write_results(args, grouping, run, X, n_tracks, n_classes, build_seconds,
     with open(outdir / f"{stem}.txt", "w", encoding="utf-8") as f:
         f.write(f"{args.dataset}  |  {tonic_tag} tonic  |  grouped by {grouping}\n")
         f.write("=" * 72 + "\n\n")
+
+        # What makes this evaluation different from its siblings, up front.
+        if features_dropped:
+            f.write(f"Feature set: {feature_set}  --  {X.shape[1]} of "
+                    f"{n_in_table} columns, {len(features_dropped)} dropped\n")
+        else:
+            f.write(f"Feature set: {feature_set}  --  all {n_in_table} columns\n")
         f.write(f"CV: {run['cv']}  ({run['n_groups']} groups over {n_tracks} tracks)\n")
         f.write(f"Ragas: {n_classes} | segments: {X.shape[0]} | features: {X.shape[1]}\n")
         f.write(f"Window: {args.segment_length}s / {args.hop}s hop\n")
-        f.write(f"Chance: {summary['chance']:.4f}\n\n")
+        f.write(f"Chance: {summary['chance']:.4f}\n")
+        f.write(f"Command: {summary['eval_command']}\n")
+        if summary["git_commit"]:
+            f.write(f"Commit: {summary['git_commit']}\n")
+        f.write("\n")
+
+        # A count cannot be inverted back to a set, so name the columns.
+        if features_dropped:
+            f.write(f"Features dropped ({len(features_dropped)})\n")
+            f.write("-" * 30 + "\n")
+            f.write(textwrap.fill(", ".join(features_dropped), width=72,
+                                  initial_indent="  ", subsequent_indent="  "))
+            f.write("\n\n")
+        if feature_names:
+            f.write(f"Features used ({len(feature_names)})\n")
+            f.write("-" * 30 + "\n")
+            f.write(textwrap.fill(", ".join(feature_names), width=72,
+                                  initial_indent="  ", subsequent_indent="  "))
+            f.write("\n\n")
 
         f.write("Accuracy\n--------\n")
         for r in run["results"]:
@@ -424,7 +556,41 @@ def main() -> None:
                         help="allow writing into a run directory that already exists")
     parser.add_argument("--skip-classification", action="store_true",
                         help="extract features and write artifacts, then stop")
+    parser.add_argument("--from-run", default=None, metavar="RUN_ID",
+                        help="evaluate an existing run's features.csv.gz instead "
+                             "of re-extracting. Dataset, tonic mode and window are "
+                             "read from that run's manifest. Only the run's eval/ "
+                             "is written to.")
+    parser.add_argument("--drop-features", nargs="+", default=None, metavar="NAME",
+                        help="feature columns to exclude (--from-run only). Pure "
+                             "column masking, so results are identical to "
+                             "re-extracting without those features.")
+    parser.add_argument("--feature-set", default=None, metavar="NAME",
+                        help="label for this evaluation's output files, e.g. "
+                             "'62feat-passA'. Defaults to '<n>feat-full'.")
     args = parser.parse_args()
+
+    if args.drop_features and not args.from_run:
+        parser.error("--drop-features requires --from-run")
+
+    from_run_dir = None
+    inherited_build_seconds = 0.0
+    if args.from_run:
+        from_run_dir = RUNS_DIR / args.from_run.lstrip("_")
+        if not from_run_dir.is_dir():
+            parser.error(f"no such run directory: {from_run_dir}")
+        manifest = load_run_manifest(from_run_dir)
+        # The extraction's identity comes from the manifest, not the command
+        # line, so an eval-only pass cannot mislabel the table it is reading.
+        args.dataset = manifest["dataset"]
+        args.annotated_tonic = str(manifest.get("tonic", "")).startswith("annotated")
+        args.segment_length = manifest.get("segment_length_s", args.segment_length)
+        args.hop = manifest.get("hop_s", args.hop)
+        inherited_build_seconds = float(manifest.get("build_seconds") or 0.0)
+        print(f"=== Evaluating saved run: {from_run_dir.name} ===")
+        print(f"  from manifest: dataset={args.dataset}  "
+              f"tonic={'annotated' if args.annotated_tonic else 'estimated'}  "
+              f"window={args.segment_length}s/{args.hop}s hop")
 
     if args.dataset == "saraga":
         saraga = initialize_saraga(DATA_HOME)
@@ -465,53 +631,75 @@ def main() -> None:
 
     mode = "ANNOTATED tonic" if args.annotated_tonic else "ESTIMATED tonic"
     n_ragas_in = len({t["raga_label"] for t in tracks})
-    run_dir = RUNS_DIR / run_id_for(args, n_ragas_in, len(tracks))
-    if run_dir.exists() and any(run_dir.iterdir()) and not args.overwrite:
-        parser.error(
-            f"run directory already exists and is not empty:\n  {run_dir}\n"
-            f"Pass --run-tag to name this run differently, or --overwrite to replace it."
+
+    if from_run_dir is not None:
+        run_dir = from_run_dir
+        X, feature_names, records, features_dropped = load_run_features(
+            from_run_dir, args.drop_features
         )
+        build_seconds = inherited_build_seconds
+        valid_records = records
+        dropped = features_dropped
 
-    print(f"=== Building segment dataset ===")
-    print(f"  dataset : {args.dataset}")
-    print(f"  tonic   : {mode}")
-    print(f"  tracks  : {len(tracks)} across {n_ragas_in} ragas")
-    print(f"  window  : {args.segment_length}s / {args.hop}s hop")
-    print(f"  run dir : outputs/runs/{run_dir.name}/")
+        print(f"\n=== Loaded saved features ===")
+        print(f"  {run_dir / 'features.csv.gz'}")
+        print(f"  segments: {X.shape[0]}  features: {X.shape[1]}"
+              f"  tracks: {len({r['track_id'] for r in valid_records})}")
+        if dropped:
+            print(f"  dropped {len(dropped)} feature(s):")
+            for name in dropped:
+                print(f"    - {name}")
+        else:
+            print("  dropped 0 features (control pass: full saved table)")
+    else:
+        run_dir = RUNS_DIR / run_id_for(args, n_ragas_in, len(tracks))
+        if run_dir.exists() and any(run_dir.iterdir()) and not args.overwrite:
+            parser.error(
+                f"run directory already exists and is not empty:\n  {run_dir}\n"
+                f"Pass --run-tag to name this run differently, or --overwrite to replace it."
+            )
 
-    t0 = time.time()
-    X, feature_names, records = build_segment_feature_dataset(
-        tracks=tracks,
-        get_pitch_fn=pitch_fn,
-        segment_length_s=args.segment_length,
-        hop_s=args.hop,
-        min_duration_s=15.0,
-        get_tonic_fn=tonic_fn,
-        run_dir=run_dir,
-    )
-    build_seconds = time.time() - t0
+        print(f"=== Building segment dataset ===")
+        print(f"  dataset : {args.dataset}")
+        print(f"  tonic   : {mode}")
+        print(f"  tracks  : {len(tracks)} across {n_ragas_in} ragas")
+        print(f"  window  : {args.segment_length}s / {args.hop}s hop")
+        print(f"  run dir : outputs/runs/{run_dir.name}/")
 
-    failed_records = [r for r in records if r["failed"]]
-    valid_records = [r for r in records if not r["failed"]]
+        t0 = time.time()
+        X, feature_names, records = build_segment_feature_dataset(
+            tracks=tracks,
+            get_pitch_fn=pitch_fn,
+            segment_length_s=args.segment_length,
+            hop_s=args.hop,
+            min_duration_s=15.0,
+            get_tonic_fn=tonic_fn,
+            run_dir=run_dir,
+        )
+        build_seconds = time.time() - t0
+        features_dropped = []  # extraction path applies DROP_NAMES upstream
 
-    print(f"\n=== Feature extraction ===")
-    print(f"Valid segments: {len(valid_records)}")
-    print(f"Failed segments: {len(failed_records)} "
-          f"({100 * len(failed_records) / max(1, len(records)):.2f}% of {len(records)})")
-    print(f"X shape: {X.shape}")
-    print(f"# features: {len(feature_names)}")
-    print(f"Build time: {build_seconds:.1f}s "
-          f"({build_seconds / max(1, len(records)):.4f}s per segment, "
-          f"{build_seconds / max(1, len(tracks)):.2f}s per track)")
-    if args.dataset == "compmusic_hmd" and len(tracks) < 300:
-        projected = build_seconds / max(1, len(tracks)) * 300
-        print(f"Projected full-300-track build: {projected / 60:.1f} min")
+        failed_records = [r for r in records if r["failed"]]
+        valid_records = [r for r in records if not r["failed"]]
 
-    if failed_records:
-        reasons = Counter(str(r.get("error", "unknown"))[:70] for r in failed_records)
-        print("\nFailure reasons (top 5):")
-        for reason, count in reasons.most_common(5):
-            print(f"  {count:5d}  {reason}")
+        print(f"\n=== Feature extraction ===")
+        print(f"Valid segments: {len(valid_records)}")
+        print(f"Failed segments: {len(failed_records)} "
+              f"({100 * len(failed_records) / max(1, len(records)):.2f}% of {len(records)})")
+        print(f"X shape: {X.shape}")
+        print(f"# features: {len(feature_names)}")
+        print(f"Build time: {build_seconds:.1f}s "
+              f"({build_seconds / max(1, len(records)):.4f}s per segment, "
+              f"{build_seconds / max(1, len(tracks)):.2f}s per track)")
+        if args.dataset == "compmusic_hmd" and len(tracks) < 300:
+            projected = build_seconds / max(1, len(tracks)) * 300
+            print(f"Projected full-300-track build: {projected / 60:.1f} min")
+
+        if failed_records:
+            reasons = Counter(str(r.get("error", "unknown"))[:70] for r in failed_records)
+            print("\nFailure reasons (top 5):")
+            for reason, count in reasons.most_common(5):
+                print(f"  {count:5d}  {reason}")
 
     if X.shape[0] == 0:
         print("\nNo valid segments produced. Stop here and debug slicing / stage1.")
@@ -528,8 +716,14 @@ def main() -> None:
     print("\nSegments per raga:", dict(Counter(y)))
     print("Tracks per raga:", dict(per_raga))
 
-    write_manifest(run_dir, args, sys.argv, X, feature_names, n_tracks_out,
-                   n_classes, build_seconds, per_raga, Counter(y))
+    if from_run_dir is None:
+        write_manifest(run_dir, args, sys.argv, X, feature_names, n_tracks_out,
+                       n_classes, build_seconds, per_raga, Counter(y))
+    else:
+        # An eval-only pass must not touch the manifest: it describes the
+        # extraction, which this pass did not perform.
+        print(f"\n  (eval-only pass: manifest.json, features.csv.gz and "
+              f"tsne.png left untouched)")
 
     if args.skip_classification:
         print("\n--skip-classification set: feature extraction only, stopping here.")
@@ -569,6 +763,11 @@ def main() -> None:
     # Features are identical across grouping schemes -- grouping only changes
     # cross-validation -- so extract once and evaluate under each scheme in
     # turn, writing a separate result file per scheme.
+    feature_set = args.feature_set or f"{X.shape[1]}feat-full"
+    # "62feat-passA" -> "62 (passA)" in the index's fixed-width feats column.
+    tag = feature_set.split("-", 1)[1] if "-" in feature_set else None
+    feats_label = f"{X.shape[1]} ({tag})" if tag and tag != "full" else str(X.shape[1])
+
     all_runs = {}
     for grouping in args.group_by:
         groups = [group_key_of[grouping][r["track_id"]] for r in valid_records]
@@ -631,9 +830,11 @@ def main() -> None:
         }
         write_results(args, grouping, all_runs[grouping], X, n_tracks_out,
                       n_classes, build_seconds, per_raga, Counter(y), run_dir,
-                      feature_set=f"{X.shape[1]}feat-full")
+                      feature_set=feature_set, feature_names=feature_names,
+                      features_dropped=features_dropped,
+                      from_run=from_run_dir is not None)
         append_to_index(run_dir, args, all_runs[grouping], n_tracks_out,
-                        n_classes, X.shape[1])
+                        n_classes, X.shape[1], feats_label=feats_label)
 
     if len(all_runs) > 1:
         print("\n\n===== GROUPING COMPARISON =====")

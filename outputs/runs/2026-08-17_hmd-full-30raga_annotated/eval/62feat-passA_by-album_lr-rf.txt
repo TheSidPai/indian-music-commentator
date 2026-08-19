@@ -1,0 +1,206 @@
+compmusic_hmd  |  annotated tonic  |  grouped by album
+========================================================================
+
+Feature set: 62feat-passA  --  62 of 71 columns, 9 dropped
+CV: StratifiedGroupKFold(4)  (158 groups over 300 tracks)
+Ragas: 30 | segments: 20821 | features: 62
+Window: 30.0s / 20.0s hop
+Chance: 0.0333
+Command: run_segment_lr_rf.py --from-run 2026-08-17_hmd-full-30raga_annotated --cv sgkf --n-splits 10 --group-by track album --feature-set 62feat-passA --overwrite --drop-features tonic_hz log_tonic_hz target_hz n_tonic_candidates n_voiced_frames log_n_voiced_frames n_confident_frames log_n_confident_frames confident_ratio
+Commit: b112a30
+
+Features dropped (9)
+------------------------------
+  confident_ratio, log_n_confident_frames, log_n_voiced_frames,
+  log_tonic_hz, n_confident_frames, n_tonic_candidates, n_voiced_frames,
+  target_hz, tonic_hz
+
+Features used (62)
+------------------------------
+  swara_prop_Sa, swara_prop_re, swara_prop_Re, swara_prop_ga,
+  swara_prop_Ga, swara_prop_Ma, swara_prop_Ma^, swara_prop_Pa,
+  swara_prop_dha, swara_prop_Dha, swara_prop_ni, swara_prop_Ni,
+  log_swara_count_Sa, log_swara_count_re, log_swara_count_Re,
+  log_swara_count_ga, log_swara_count_Ga, log_swara_count_Ma,
+  log_swara_count_Ma^, log_swara_count_Pa, log_swara_count_dha,
+  log_swara_count_Dha, log_swara_count_ni, log_swara_count_Ni,
+  unassigned_frames, log_unassigned_frames, range_span_cents,
+  hist_ref_hz, hist_peak_1_cents, hist_peak_1_height, hist_entropy,
+  hist_concentration, mean_abs_pitch_diff_cents, std_pitch_diff_cents,
+  mean_positive_pitch_diff_cents, mean_negative_pitch_diff_cents,
+  frac_rising_frames, frac_falling_frames, frac_flat_frames,
+  mean_pitch_step_size_cents, n_stable_regions, mean_stable_region_len,
+  max_stable_region_len, stable_frame_ratio, n_transition_regions,
+  mean_transition_region_len, max_transition_region_len,
+  transition_frame_ratio, bigram_prop_Sa_Re, bigram_prop_Re_Ga,
+  bigram_prop_Ga_Ma, bigram_prop_Ma_Pa, bigram_prop_Pa_Dha,
+  bigram_prop_Dha_Ni, bigram_prop_Ni_Sa, bigram_prop_Sa_Ni,
+  trigram_prop_Sa_Re_Ga, trigram_prop_Ga_Ma_Pa, trigram_prop_Pa_Dha_Ni,
+  trigram_prop_Ni_Dha_Pa, trigram_prop_Ga_Re_Sa, trigram_prop_Ni_Sa_Re
+
+Accuracy
+--------
+  Logistic Regression    track 0.9267   segment 0.7006   (21.0x chance)
+  Random Forest          track 0.9267   segment 0.6669   (20.0x chance)
+
+Per-raga structure (bias check)
+-------------------------------
+raga                   tracks  segments  cv_groups
+Ahira bhairav              10       564         10
+Alahaiyā bilāval           10       541          8
+Bairāgi                    10       554          8
+Basant                     10       491         10
+Bhairav                    10       588          6
+Bhūp                       10       625          8
+Bihāg                      10       725          5
+Bilāsakhānī tōḍī           10       679         10
+Bāgēśrī                    10       880         10
+Darbāri                    10       966         10
+Dēś                        10       392          7
+Gauḍ malhār                10       776          8
+Hamsadhvāni                10       432          6
+Jōg                        10       840          8
+Khamāj                     10       451          4
+Kēdār                      10       594          6
+Lalit                      10       951          8
+Madhukauns                 10       513          8
+Madhuvanti                 10       717          8
+Miyān malhār               10      1028         10
+Mālkauns                   10      1056         10
+Mārvā                      10       727         10
+Mārūbihāg                  10       744          8
+Puriyā dhanaśrī            10       579          9
+Rāgēśrī                    10       601          6
+Tōḍī                       10       892         10
+Yaman kalyāṇ               10       752         10
+Ābhōgī                     10       592          9
+Śrī                        10      1095          8
+Śuddh sāraṅg               10       476          8
+
+
+Per-class report -- Logistic Regression
+------------------------------------------------------------
+                  precision    recall  f1-score   support
+
+   Ahira bhairav     0.7197    0.7376    0.7285       564
+Alahaiyā bilāval     0.5993    0.5915    0.5953       541
+         Bairāgi     0.8827    0.8827    0.8827       554
+          Basant     0.5232    0.5051    0.5140       491
+         Bhairav     0.7849    0.7262    0.7544       588
+            Bhūp     0.7343    0.7648    0.7492       625
+           Bihāg     0.6816    0.6731    0.6773       725
+Bilāsakhānī tōḍī     0.7880    0.8100    0.7988       679
+         Bāgēśrī     0.7562    0.7580    0.7571       880
+         Darbāri     0.6178    0.6760    0.6456       966
+             Dēś     0.4413    0.3546    0.3932       392
+     Gauḍ malhār     0.5833    0.5954    0.5893       776
+     Hamsadhvāni     0.6347    0.6597    0.6470       432
+             Jōg     0.6991    0.7357    0.7169       840
+          Khamāj     0.4589    0.4213    0.4393       451
+           Kēdār     0.7169    0.7121    0.7145       594
+           Lalit     0.7596    0.7876    0.7734       951
+      Madhukauns     0.7671    0.7446    0.7557       513
+      Madhuvanti     0.7781    0.7727    0.7754       717
+    Miyān malhār     0.6637    0.7237    0.6924      1028
+        Mālkauns     0.8053    0.7831    0.7940      1056
+           Mārvā     0.9076    0.9188    0.9132       727
+       Mārūbihāg     0.5207    0.5242    0.5224       744
+ Puriyā dhanaśrī     0.5799    0.5889    0.5844       579
+         Rāgēśrī     0.7774    0.7671    0.7722       601
+            Tōḍī     0.8252    0.7410    0.7809       892
+    Yaman kalyāṇ     0.5292    0.5306    0.5299       752
+          Ābhōgī     0.7010    0.5861    0.6385       592
+             Śrī     0.7885    0.8174    0.8027      1095
+    Śuddh sāraṅg     0.6417    0.6660    0.6536       476
+
+        accuracy                         0.7006     20821
+       macro avg     0.6889    0.6852    0.6864     20821
+    weighted avg     0.7004    0.7006    0.6999     20821
+
+Misclassified tracks (22/300):
+  Alahaiyā bilāval       -> Bihāg                  (16 segs)  7ed38940-f5e5-46cb-897d-ed408ddf8c85
+  Alahaiyā bilāval       -> Dēś                    (56 segs)  f5689624-b636-4a6c-831f-53d1678d9bb6
+  Basant                 -> Puriyā dhanaśrī        (26 segs)  88b004be-6280-402b-a178-07efd6285326
+  Basant                 -> Lalit                  (86 segs)  bb6a5ac4-9e42-49b2-bec4-58e1aff53230
+  Bhūp                   -> Yaman kalyāṇ           (22 segs)  64a44651-dab9-4ee1-a49e-dcca4cf67c53
+  Bihāg                  -> Yaman kalyāṇ           (24 segs)  8f983ca1-2b51-4a9f-9265-b797b09c91c9
+  Darbāri                -> Mālkauns               (89 segs)  91bbdaa0-551d-454b-97f3-67c89c72f8d5
+  Darbāri                -> Bhūp                   (62 segs)  6e4dea78-ec22-479a-9e3c-c253a6deba7c
+  Dēś                    -> Miyān malhār           (27 segs)  b97c32e5-f9ab-465d-b651-681016323409
+  Dēś                    -> Gauḍ malhār            (20 segs)  c8724201-ecfd-44be-af53-5f436564d062
+  Dēś                    -> Gauḍ malhār            (28 segs)  97a04401-5a5a-4951-9b94-cce8fbc302cf
+  Gauḍ malhār            -> Alahaiyā bilāval       (25 segs)  73f6dda2-50bf-416f-8b77-2de40d24b455
+  Gauḍ malhār            -> Alahaiyā bilāval       (181 segs)  acf065cc-7a66-4f9d-9eb9-3a86b35fa447
+  Hamsadhvāni            -> Bhūp                   (26 segs)  06cc10fd-d57e-4581-9627-ee7422c273dd
+  Jōg                    -> Madhukauns             (16 segs)  86d7779a-1610-4514-83a6-883997250abe
+  Khamāj                 -> Darbāri                (22 segs)  dcc4b6e9-15ef-4662-acbe-8666af8cbca5
+  Khamāj                 -> Miyān malhār           (31 segs)  9ce13d3a-f853-490c-a706-39283372eb0e
+  Khamāj                 -> Alahaiyā bilāval       (58 segs)  c556b631-111f-42e8-aa98-e02f0777be9e
+  Mālkauns               -> Darbāri                (91 segs)  5233f93f-4f1c-4ba1-9d3f-3d47a5f81d2e
+  Rāgēśrī                -> Bāgēśrī                (18 segs)  adb5c888-68cb-4456-811c-f282aeee3713
+  Yaman kalyāṇ           -> Bihāg                  (63 segs)  aa93fca9-362d-4ea4-952f-65006746b888
+  Ābhōgī                 -> Bāgēśrī                (94 segs)  e40375a2-01d2-4137-823a-3e62503baf98
+
+
+Per-class report -- Random Forest
+------------------------------------------------------------
+                  precision    recall  f1-score   support
+
+   Ahira bhairav     0.7865    0.6401    0.7058       564
+Alahaiyā bilāval     0.5382    0.3253    0.4055       541
+         Bairāgi     0.8238    0.8610    0.8420       554
+          Basant     0.5108    0.5784    0.5425       491
+         Bhairav     0.7184    0.6769    0.6970       588
+            Bhūp     0.6707    0.7104    0.6900       625
+           Bihāg     0.6021    0.7200    0.6558       725
+Bilāsakhānī tōḍī     0.8250    0.8262    0.8256       679
+         Bāgēśrī     0.7378    0.7580    0.7478       880
+         Darbāri     0.6887    0.6460    0.6667       966
+             Dēś     0.3641    0.3520    0.3580       392
+     Gauḍ malhār     0.5691    0.4459    0.5000       776
+     Hamsadhvāni     0.4605    0.6875    0.5515       432
+             Jōg     0.6019    0.7667    0.6743       840
+          Khamāj     0.3820    0.4812    0.4259       451
+           Kēdār     0.6447    0.7088    0.6752       594
+           Lalit     0.7848    0.7708    0.7777       951
+      Madhukauns     0.7583    0.7154    0.7362       513
+      Madhuvanti     0.7426    0.7322    0.7374       717
+    Miyān malhār     0.6790    0.5905    0.6316      1028
+        Mālkauns     0.7650    0.7737    0.7693      1056
+           Mārvā     0.8881    0.9175    0.9026       727
+       Mārūbihāg     0.5844    0.4328    0.4973       744
+ Puriyā dhanaśrī     0.6453    0.5561    0.5974       579
+         Rāgēśrī     0.8039    0.6889    0.7419       601
+            Tōḍī     0.8757    0.6637    0.7551       892
+    Yaman kalyāṇ     0.6039    0.4561    0.5197       752
+          Ābhōgī     0.5682    0.6334    0.5990       592
+             Śrī     0.7189    0.8128    0.7630      1095
+    Śuddh sāraṅg     0.3900    0.7038    0.5019       476
+
+        accuracy                         0.6669     20821
+       macro avg     0.6577    0.6544    0.6498     20821
+    weighted avg     0.6769    0.6669    0.6664     20821
+
+Misclassified tracks (22/300):
+  Alahaiyā bilāval       -> Bihāg                  (16 segs)  7ed38940-f5e5-46cb-897d-ed408ddf8c85
+  Alahaiyā bilāval       -> Dēś                    (56 segs)  f5689624-b636-4a6c-831f-53d1678d9bb6
+  Alahaiyā bilāval       -> Khamāj                 (52 segs)  04d506c4-df9e-410c-a3e2-037abffe7b9c
+  Alahaiyā bilāval       -> Khamāj                 (19 segs)  3766bcb1-57b6-4c16-9196-c2ed94d80331
+  Alahaiyā bilāval       -> Khamāj                 (20 segs)  0017d78e-a39d-4151-8d93-826ab2eb00d8
+  Alahaiyā bilāval       -> Gauḍ malhār            (55 segs)  b22390c8-88bb-4e1f-9e23-bd3e237043ba
+  Bhairav                -> Bihāg                  (60 segs)  3abaaa52-4c95-4e8b-beda-37bc3d01f763
+  Bihāg                  -> Śuddh sāraṅg           (24 segs)  8f983ca1-2b51-4a9f-9265-b797b09c91c9
+  Bihāg                  -> Hamsadhvāni            (23 segs)  c8c0b93e-0e7d-4e08-a1cc-95b0eecee5db
+  Darbāri                -> Mālkauns               (89 segs)  91bbdaa0-551d-454b-97f3-67c89c72f8d5
+  Darbāri                -> Gauḍ malhār            (62 segs)  6e4dea78-ec22-479a-9e3c-c253a6deba7c
+  Dēś                    -> Gauḍ malhār            (34 segs)  e3a55c80-653e-4587-aca9-bf6c7245c459
+  Dēś                    -> Khamāj                 (20 segs)  c8724201-ecfd-44be-af53-5f436564d062
+  Gauḍ malhār            -> Dēś                    (26 segs)  28dd1d68-ee23-47f4-8776-33cc18adc44a
+  Hamsadhvāni            -> Bhūp                   (26 segs)  06cc10fd-d57e-4581-9627-ee7422c273dd
+  Khamāj                 -> Darbāri                (22 segs)  dcc4b6e9-15ef-4662-acbe-8666af8cbca5
+  Madhuvanti             -> Bihāg                  (8 segs)  c1aba7b7-cd7a-4e6c-90e7-798b617bfdc9
+  Mārūbihāg              -> Śuddh sāraṅg           (87 segs)  56ad0c6b-6e9d-40e5-a917-96ec46c95e1c
+  Mārūbihāg              -> Yaman kalyāṇ           (62 segs)  a4fa5d55-8ea5-47dc-b411-f3abe4ce5405
+  Puriyā dhanaśrī        -> Basant                 (37 segs)  930ae825-111c-4dd5-b8be-de609fd5202d
+  Tōḍī                   -> Śrī                    (60 segs)  c4f7a204-5c54-47a1-ae39-b70a366b6865
+  Ābhōgī                 -> Bhūp                   (128 segs)  a01ac873-dff4-420f-9fd8-490dd87c58e9

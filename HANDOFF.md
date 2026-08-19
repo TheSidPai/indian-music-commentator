@@ -15,9 +15,15 @@ musical commentary system.
 ## 2. FROZEN REFERENCE NUMBERS
 
 Do not recompute, overwrite, or contradict these without explicit discussion.
-All use 30 s windows / 20 s hop / 15 s minimum and 71 features.
+All use 30 s windows / 20 s hop / 15 s minimum. Feature count is **71 except in
+§2g**, which is the 36-feature ablation result and the current headline.
 
-### 2a. HEADLINE — CompMusic HMD, 30 ragas, 300 recordings
+### 2a. CompMusic HMD, 30 ragas, 300 recordings — 71 features
+
+> **Superseded as headline by §2g (2026-08-19).** These figures are **not
+> retracted** — they were reproduced exactly by the ablation control pass and
+> remain the correct numbers **for the 71-feature set**, which is the right
+> comparison point for it. Quote §2g for the current headline.
 
 Annotated (`.tonicFine`) tonic, 20,821 segments, chance = 0.0333.
 
@@ -28,11 +34,15 @@ Annotated (`.tonicFine`) tonic, 20,821 segments, chance = 0.0333.
 | **album** | **SGKF(4), 158 groups** | **LR** | **0.8633** | **0.6648** | **19.9×** |
 | album | SGKF(4), 158 groups | RF | 0.8533 | 0.6264 | 18.8× |
 
-**Quote the album-grouped LR figures** when one number is needed — strictest
-protocol run. Misclassified: 21/300 and 20/300 (track); 41/300 and 44/300 (album).
-Album fold count auto-capped at 4 by Khamāj (only 4 sessions), so part of the
-track→album gap is reduced training data, not the confound. Extraction: 895 s,
+Misclassified: 21/300 and 20/300 (track); 41/300 and 44/300 (album).
+Album fold count auto-capped at 4 by Khamāj (only 4 sessions). Extraction: 895 s,
 zero failures.
+
+**Correction (2026-08-19):** this section previously read that part of the
+track→album gap here is reduced training data from the 4-fold cap "not the
+confound". Measured by the §2g ablation, most of it *was* the confound — the LR
+gap is 0.0667 at 71 features and 0.0267 at 36. The fold cap explains at most the
+smaller residual.
 
 Produced by:
 ```bash
@@ -112,6 +122,63 @@ Individual features worth knowing:
 - Near-duplicate pairs (|r| > 0.97): `tonic_hz`/`log_tonic_hz` 0.998; `bigram_prop_Ni_Sa`/`Sa_Ni` 0.997; `mean_pitch_step_size_cents` vs `mean_positive/negative_pitch_diff` 0.985/0.988; `stable_frame_ratio`/`transition_frame_ratio` 0.985.
 - The 12 `swara_prop_*` sum to exactly 1.0 — compositional, so one is determined by the other eleven.
 
+### 2g. HEADLINE — HMD 30 ragas / 300 recordings, 36 features
+
+The §5 ablation, run 2026-08-19 on the same 20,821 × 71 table as §2a (no
+re-extraction — pure column masking). Annotated tonic, chance = 0.0333.
+
+**Album-grouped, SGKF(4), 158 groups — the frozen protocol, quote these:**
+
+| pass | feats | LR track | LR seg | RF track | RF seg |
+|---|---|---|---|---|---|
+| control | 71 | 0.8633 | 0.6648 | 0.8533 | 0.6264 |
+| A | 62 | 0.9267 | 0.7006 | 0.9267 | 0.6669 |
+| B | 55 | 0.9233 | 0.7000 | 0.9367 | 0.6657 |
+| **C** | **36** | **0.9300** | **0.7179** | **0.9300** | **0.6631** |
+
+**Track-grouped, SGKF(10), 300 groups:**
+
+| pass | feats | LR track | LR seg | RF track | RF seg |
+|---|---|---|---|---|---|
+| control | 71 | 0.9300 | 0.7079 | 0.9333 | 0.6735 |
+| A | 62 | 0.9500 | 0.7224 | 0.9233 | 0.6718 |
+| B | 55 | 0.9500 | 0.7236 | 0.9300 | 0.6704 |
+| **C** | **36** | **0.9567** | **0.7288** | 0.9333 | 0.6664 |
+
+**When one number is needed: album-grouped LR, 36 features, 0.9300 track
+accuracy / 0.7179 segment (21.5× chance), 21/300 recordings misclassified.**
+Macro F1 0.7009, up from 0.6478 at 71 features.
+
+**The 36 surviving features** — 12 `swara_prop_*`, 12 `log_swara_count_*`,
+4 histogram-shape (`hist_peak_1_cents`, `hist_peak_1_height`, `hist_entropy`,
+`hist_concentration`), 8 `bigram_prop_*`. Spelled out here because the eval
+artifacts record only the feature *count*, not the names (see §3).
+
+**Significance — paired McNemar, not a binomial band.** Every pass predicts the
+same 300 recordings under the same folds (folds depend only on labels, groups
+and seed), so the comparison is paired. All three passes beat the control
+album-grouped: LR fixes 23/21/26 recordings and breaks 4/3/6 (p = 0.0003,
+0.0003, 0.0005); RF fixes 30/31/30 and breaks 8/6/7 (p = 0.0005, <0.0001,
+0.0002). Survives Bonferroni over all 24 pairwise tests run.
+**A, B and C are mutually indistinguishable** (p = 0.25–1.00), and *nothing*
+changes significantly under track grouping. C is chosen on parsimony, not
+because 0.9300 > 0.9267 — that is one recording.
+
+**Why it went up.** The Pass-A features were an active liability, not ballast.
+Textbook confound signature: harmless under track grouping (a held-out
+recording's album siblings share its tonic, so the cue still works), harmful
+under album grouping (session unseen, so the cue misleads). `tonic_hz` alone had
+the highest MI with raga of all 71 features — memorisation capacity being spent
+on the wrong thing.
+
+Produced by (drop lists in §5):
+```bash
+.venv/bin/python run_segment_lr_rf.py --from-run 2026-08-17_hmd-full-30raga_annotated \
+    --cv sgkf --n-splits 10 --group-by track album \
+    --feature-set 36feat-passC --drop-features <35 names>
+```
+Artifacts: `outputs/runs/2026-08-17_hmd-full-30raga_annotated/eval/{71feat-control,62feat-passA,55feat-passB,36feat-passC}_by-{track,album}_lr-rf.{json,txt}`.
+
 ---
 
 ## 3. CURRENT STATE
@@ -136,7 +203,22 @@ Individual features worth knowing:
 - `run_segment_lr_rf.py` flags: `--dataset`, `--annotated-tonic`,
   `--cv logo|sgkf`, `--n-splits`, `--group-by track album` (multi-value: one
   extraction, N evaluations), `--ragas`, `--per-raga`, `--run-tag`,
-  `--skip-classification`.
+  `--skip-classification`, and (2026-08-19) `--from-run <run_id>`,
+  `--drop-features <names...>`, `--feature-set <name>`.
+- **Eval-only mode** (`--from-run`): loads a saved run's `features.csv.gz`,
+  masks columns, and reuses the identical evaluation path — same SGKF, album
+  group map, majority vote, seed. Dataset/tonic/window are read from that run's
+  `manifest.json`, not retyped on the command line. It never rewrites
+  `manifest.json`, `features.csv.gz` or `tsne.png`, and refuses to overwrite an
+  existing `eval/` result without `--overwrite`. **Verified**: re-evaluating all
+  71 columns reproduces §2a to the digit, misclassification counts included.
+  That control is a mandatory gate before trusting any ablation delta.
+- **The classifier's feature set is an evaluation choice, not an extraction
+  choice.** Extraction stays at 71 columns; the classifier masks to 36 via
+  `--drop-features`. Do **not** move the §2g drops into `DROP_NAMES` — the 16
+  contour/stability features are dead weight for classification but describe
+  movement (meend, stability, transition density), which the commentary system
+  is likely to need.
 - **outputs/ layout** (restructured 2026-08-19): one directory per feature
   extraction at `outputs/runs/<run_id>/` holding `manifest.json` (command, git
   sha, params, feature names), `features.csv.gz` (named columns, gzipped) and
@@ -147,17 +229,31 @@ Individual features worth knowing:
   write into a non-empty run directory without `--overwrite`.
 - t-SNE scales to 30 classes, subsamples above 4,000 points.
 
+**Eval provenance — fixed 2026-08-19.** The eval artifacts used to record
+`n_features` (the count) but never *which* features, and **a count cannot be
+inverted back to a set**, so a feature-subset evaluation was not reproducible
+from its own files. Each eval JSON now carries `feature_set`, `features_used`,
+`features_dropped`, `n_features_in_table`, `evaluated_from`, `eval_command` and
+`git_commit`; each TXT leads with a one-line feature-set summary and lists both
+name sets. `extraction_build_seconds` is `null` on an eval-only pass rather than
+`0.0`, which previously read as "extraction was instant" instead of "not
+measured". The four 2026-08-19 passes were re-run under `--overwrite` to
+backfill; all 16 figures were verified byte-identical to the first run.
+
 **Not implemented**: estimated-tonic full 30-raga run; any classifier beyond
 LR/RF; segment cap; `run_tonic_validation.py` on HMD (only a 20-track spot
-check); **the tonic estimator fix** — `resolve_tonic_octave`'s octave/fifth bug
-is unfixed, and annotated tonics are a workaround that won't transfer to
-unannotated data.
+check); **the tonic estimator fix** —
+`resolve_tonic_octave`'s octave/fifth bug is unfixed, and annotated tonics are a
+workaround that won't transfer to unannotated data.
 
 **Git**
-- Snapshot at time of writing: `main` at `60577d5`, `origin/main` at `626f4db`,
-  **1 commit unpushed**. Verify with `git status -sb` rather than trusting this line.
-- Backup refs from the co-author-trailer rewrite still present and safe to delete
-  once GitHub is confirmed: `pre-rewrite-backup`, `refs/original/refs/heads/main`.
+- Snapshot at time of writing: `main` level with `origin/main` at `b112a30`,
+  with the 2026-08-19 ablation work (`run_segment_lr_rf.py`, `HANDOFF.md`, the
+  log entry, 8 new `eval/` files, `INDEX.md`) committed on top.
+  Verify with `git status -sb` rather than trusting this line.
+- The co-author-trailer rewrite's backup refs (`pre-rewrite-backup`,
+  `refs/original/refs/heads/main`) are **gone** — cleaned up once the rewritten
+  history was confirmed on GitHub. Nothing left to delete.
 - `CLAUDE.md` lives at the workspace root, **outside any git repo** — updated but
   intentionally untracked.
 
@@ -183,33 +279,26 @@ unannotated data.
 
 ---
 
-## 5. DECIDED NEXT STEP — feature ablation, three passes
+## 5. DONE (2026-08-19) — feature ablation, three passes
 
-All three agreed. Evidence for every drop is in §2f. **Filenames use the actual
-surviving count** (an earlier draft of this section said 65/59/52; that was a
-stale carry-over and is wrong — ignore it).
+**Completed. Results are §2g; narrative is the 2026-08-19 entry in
+`docs/experiments/2026-06-raga-baseline-log.md`.** The drop lists below are now
+also recorded in each eval JSON/TXT (`features_dropped`), so this section is no
+longer the single point of failure it was — but keep it as the human-readable
+statement of *why* each group was dropped, which the artifacts do not carry.
 
-### Harness
+**Outcome in one line:** the album-grouped headline rose 0.8633 → 0.9300 track
+accuracy while features fell 71 → 36. Pass A did essentially all the work;
+B and C are statistically free.
 
-Add `--from-run <run_id> --drop-features <names...> --feature-set <name>` to
-**`run_segment_lr_rf.py`**, loading `features.csv.gz` and skipping extraction.
-`apply_feature_subset` is pure column masking, so dropping columns from the
-saved table is numerically identical to re-extracting (imputation and scaling
-are per-column) — no re-extraction for any pass.
+**The prediction was wrong in both direction and size.** A was expected to
+"move little", RF to lose more than LR, and track-grouped to lose more than
+album-grouped. In fact nothing lost significantly anywhere, RF *gained* more
+than LR, and the album-grouped improvement was 6.3 points. The confound
+features were an active liability, not ballast — see §2g.
 
-**Do not use `tests/classifier_compare.py`** for these. It splits with a single
-`GroupShuffleSplit`, the same family of shortcut that produced the retracted
-0.9051. The frozen protocol — SGKF, album group map, segment→track majority
-vote, seed 42 — exists only in `run_segment_lr_rf.py`, and reusing that exact
-code path is what makes A/B/C comparable to §2a.
-
-### Control pass first — this gates everything
-
-Re-evaluate the untouched 71 columns from the saved CSV and require an **exact**
-reproduction of §2a (album LR 0.8633 / 0.6648; track LR 0.9300 / 0.7079). Folds
-depend only on labels, groups and seed, not on features, so with row order
-preserved this must match to the digit. **If it does not match exactly, stop** —
-no ablation delta is attributable to columns until it does.
+The harness (`--from-run`) and the control gate are described in §3; the control
+reproduced §2a exactly, which is what licensed everything below.
 
 ### The passes
 
@@ -232,37 +321,46 @@ data says otherwise: track/raga variance ratio **1.3**, essentially identical to
 `swara_prop_*` at 1.2, and `log_swara_count_re` has the second-highest mutual
 information of any feature (0.46). They are raga signal, not confound.
 
-### Expectations
+### The statistical test — corrected
 
-- **A**: album LR should move little (the 24 swara dims carry the signal). Two directional checks: **RF should lose more than LR** (it splits greedily on high-cardinality continuous columns, and `tonic_hz` is a near-unique session id); and **track-grouped should lose more than album-grouped**, narrowing the 0.93/0.86 gap, since under track grouping a held-out track's album siblings sit in training with nearly the same tonic. Accuracy going slightly *up* is plausible — fewer confounded dims can help LR's regularisation.
-- **B**: near no-op by construction (`hist_ref_hz` is provably inert). Expect ≤0.01. It is the attribution step, not a finding.
-- **C**: most likely to cost accuracy — 19 live dims. Guess 0.02–0.05 off album LR. If flat, adopt the 36-dim set permanently.
+The plan proposed a binomial SE of ≈0.020 at n=300 and a "~4 points is noise"
+band. **That test was wrong for this design.** It assumes two independent
+samples, but every pass predicts the same 300 recordings under the same folds,
+so the comparison is *paired*. The correct test is **McNemar on the discordant
+recordings**, and it is considerably more powerful — see §2g. Use it for any
+future comparison across feature sets, classifiers or hyperparameters on a
+fixed CV; reserve the binomial band for genuinely independent samples.
 
-### Statistical caveat, to be carried into the writeup
+### Deliverables — all written
 
-At n=300 tracks and p≈0.86 the binomial SE is ≈0.020, so **any track-accuracy
-difference under ~4 points is inside 2 SE and not distinguishable from noise**.
-Three passes × two groupings × two models = 12 numbers on one CV. Log all 12;
-read only large, directionally consistent moves as real. This is §7's
-multiple-comparisons concern in concrete form.
-
-### Deliverables
-
-`62feat-passA_by-{track,album}_lr-rf.{json,txt}`, likewise `55feat-passB` and
-`36feat-passC`, plus `71feat-control_*`, all into
-`outputs/runs/2026-08-17_hmd-full-30raga_annotated/eval/`. INDEX.md rows
-appended. §2a left untouched.
+`71feat-control_*`, `62feat-passA_*`, `55feat-passB_*`, `36feat-passC_*`, each
+`_by-{track,album}_lr-rf.{json,txt}`, in
+`outputs/runs/2026-08-17_hmd-full-30raga_annotated/eval/`. 16 INDEX.md rows
+appended with the pass name in the feats column. The extraction itself
+(`manifest.json`, `features.csv.gz`, `tsne.png`) is byte-unchanged.
 
 ## 6. QUEUED AFTER THAT
 
-1. ~~Wire a CSV-based classifier sweep~~ — partly done: `classifier_compare.py --run <run_id>` now reads a run's `features.csv.gz` and writes into its `eval/`. Still only LR+RF; extend it to take a list of classifiers and a `--drop-features` argument (the latter is what makes the §5 ablations one-liners).
-2. Sweep classifiers on the frozen protocol — `HistGradientBoostingClassifier` first (most likely win), then LinearSVC, RBF-SVM, LDA, MLP.
-3. Permutation importance on the surviving feature set to find dead weight.
-4. Add swara **transition/bigram** features (144 dims) — targets the measured Kēdār/Bihāg confusion, which distribution-only features cannot see.
+0. ~~Eval-provenance fix~~ — **done 2026-08-19**, see §3.
+1. ~~Wire a CSV-based classifier sweep~~ — **done differently.** `--from-run` +
+   `--drop-features` landed on `run_segment_lr_rf.py`, not
+   `classifier_compare.py`, so the sweep reuses the frozen protocol rather than
+   `classifier_compare.py`'s single `GroupShuffleSplit`. Extending
+   `classifier_compare.py` is **no longer the plan**; extend
+   `run_segment_lr_rf.py` to take a list of classifiers instead.
+2. Sweep classifiers on the frozen protocol, **on the 36-feature set** —
+   `HistGradientBoostingClassifier` first (most likely win), then LinearSVC,
+   RBF-SVM, LDA, MLP. Half the features, so cheaper than planned.
+3. Permutation importance on the surviving 36 to find any remaining dead weight.
+4. Add swara **transition/bigram** features (144 dims) — targets the Kēdār/Bihāg
+   confusion. Better motivated now: Kēdār improved to F1 0.780 under §2g, but
+   `bigram_prop_*` is still only 8 hand-picked pairs. Needs re-extraction.
 5. Add **nyas** features from the unused `.flatSegNyas` files (300 present on disk).
 6. Segment-cap experiment (cap per recording at ~64, the median) against the 2.8× imbalance.
 7. Window-length sweep: 30 / 60 / 120 s.
-8. Estimated-tonic variant of the full 30-raga run, to confirm the tonic effect at 30 classes.
+8. Estimated-tonic variant of the full 30-raga run — now **more interesting**:
+   with `tonic_hz` dropped from the classifier, estimator errors may bite
+   differently than they did at 71 features.
 9. `run_tonic_validation.py` across all 300 HMD tracks.
 10. Confusion-structure / thaat clustering analysis for the writeup.
 11. Fix `resolve_tonic_octave` — the one unaddressed root cause.
@@ -271,13 +369,21 @@ appended. §2a left untouched.
 
 ## 7. OPEN QUESTIONS
 
-- **§5 is agreed** (2026-08-19): all three ablation passes approved. Pass A is
-  the immediate action; B and C follow as separate passes so any change is
-  attributable to a specific removal.
+- ~~**§5 is agreed**~~ — **done 2026-08-19**, results in §2g.
 - **Multiple-comparisons risk.** ~30 planned variants on one CV; picking the best
-  will overstate. Defence undecided: log every variant, or decide on the 5-raga
-  pilot and confirm only finalists on the full 300 (recommended), or hold out
-  recordings entirely.
+  will overstate. Defence still undecided: log every variant, or decide on the
+  5-raga pilot and confirm only finalists on the full 300 (recommended), or hold
+  out recordings entirely.
+  Partial progress: the §5 ablation adopted **paired McNemar plus Bonferroni over
+  every test run** (24), which is a defence against *reading noise as signal* but
+  **not** against selecting a winner from many variants. The §5 passes also came
+  out mutually indistinguishable, so C was chosen on parsimony rather than on its
+  score — the right move, and the one to repeat. A held-out set of recordings is
+  still the only real answer once the classifier sweep starts.
+- **Should the 36-feature set be re-derived per experiment?** It was selected on
+  this CV, on this dataset. Treating it as fixed for all future work imports that
+  selection into every later result. Cheap mitigation: re-run the control and
+  Pass C whenever the dataset or window changes.
 - **Segment cap is an experimental variable, not cleanup** — report alongside
   the uncapped result, not instead of it. Not yet agreed.
 - **Annotations assumed correct.** Neither Saraga's `ctonic` nor HMD's
