@@ -263,8 +263,13 @@ workaround that won't transfer to unannotated data.
   cells (`test.ipynb`, `commentator.ipynb`) from
   `IPython.display.Audio(track.audio_path)` outputs — despite the pipeline
   never touching audio. Reclaiming it needs a history rewrite and force-push;
-  not done, and a decision rather than a cleanup. `nbstripout` or a pre-commit
-  hook would stop further growth without rewriting anything.
+  **not done**, and a decision rather than a cleanup.
+- **`test.ipynb` is gitignored as of 2026-08-20** — a local scratchpad, not a
+  deliverable. It was 86.6 MiB against GitHub's **hard 100 MiB per-file limit**,
+  so it was roughly one more audio cell away from blocking pushes outright.
+  It still exists on disk and its old blobs remain in history; this only stops
+  new ones. `commentator.ipynb` (9.3 MiB) is still tracked — `nbstripout` would
+  cover it if its commits start growing again.
 - The co-author-trailer rewrite's backup refs (`pre-rewrite-backup`,
   `refs/original/refs/heads/main`) are **gone** — cleaned up once the rewritten
   history was confirmed on GitHub. Nothing left to delete.

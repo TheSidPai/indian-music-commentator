@@ -1586,3 +1586,21 @@ rewrite and force-push, immediately after the co-author-trailer rewrite, so it i
 a decision rather than a cleanup. Stripping notebook outputs going forward
 (`nbstripout` or a pre-commit hook) would stop the growth without touching
 history.
+
+**Follow-up 2026-08-20: `test.ipynb` gitignored.** Checking what a push would
+actually cost clarified the risk. Those blobs are already on `origin`, so git
+never re-sends them — the cost is paid once per blob, not per push. What
+compounds is that *every new commit touching the notebook writes a fresh ~87 MB
+object* (history already holds three: 86.6, 28.1 and 7.5 MiB), and base64 audio
+neither deltas nor compresses well.
+
+The sharper problem: at **86.6 MiB** the file sat against GitHub's **hard
+100 MiB per-file limit** — not a warning, a rejected push. One more embedded
+audio cell would have blocked pushing to the repo entirely and forced the
+history rewrite under time pressure.
+
+Since it is a scratchpad rather than a deliverable — the real artifacts live in
+`outputs/` with manifests — it was untracked with `git rm --cached` and added to
+`.gitignore`, which is simpler than a filter and has no per-clone setup to
+forget. The file stays on disk; its existing blobs stay in history.
+`commentator.ipynb` (9.3 MiB) remains tracked.

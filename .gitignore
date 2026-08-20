@@ -2,3 +2,10 @@
 __pycache__/
 *.pyc
 .pytest_cache/
+
+# Local scratchpad notebook. Untracked 2026-08-20: it was 86.6 MiB, almost all
+# of it base64 audio embedded by IPython.display.Audio outputs, and it is not a
+# deliverable -- real artifacts live in outputs/ with manifests. The blob stays
+# in history; this only stops new ones. See the 2026-08-19 declutter entry in
+# docs/experiments/2026-06-raga-baseline-log.md.
+test.ipynb
